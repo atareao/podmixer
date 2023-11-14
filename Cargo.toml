@@ -19,3 +19,6 @@ tower = "0.4.13"
 tower-http = { version = "0.4.4", features = ["trace", "fs"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["local-time", "env-filter"] }
+
+[dev-dependencies]
+dotenv = "0.15.0"

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
+use reqwest::Error;
 use rss::Channel;
-use super::CustomError;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Podcast{
@@ -12,17 +12,14 @@ pub struct Podcast{
 }
 
 impl Podcast {
-    pub async fn read(self) -> Result<(), CustomError>{
+    pub async fn read(self) -> Result<String, Error>{
         let client = reqwest::Client::new();
-        let response = client
+        Ok(client
             .get(self.url)
             .send()
-            .await
-            .map_err(CustomError::Reqwest)?;
-        let content = response.error_for_status()
-            .map_err(CustomError::Reqwest)?
-            .await
-            .map_err(CustomError::Reqwest)?;
-        Ok(())
+            .await?
+            .error_for_status()?
+            .text()
+            .await?)
     }
 }

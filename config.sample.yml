@@ -1,0 +1,28 @@
+log_level: DEBUG
+frequency: 1800
+long_in_days: 30
+feed:
+  link: ""
+  title: ""
+  author: ""
+  image_url: ""
+  category: ""
+  rating: ""
+  description: ""
+  credir: ""
+  keywords: ""
+podcasts:
+  - title: ""
+    author: ""
+    last_pub_date: ""
+    url: ""
+    image_url: ""
+telegram:
+  token: ""
+  chat_id: -1000000000000
+  thread_id: 0
+twitter:
+  client_id: ""
+  client_secret: ""
+  access_token: ""
+  refresh_token: ""

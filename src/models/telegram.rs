@@ -1,6 +1,7 @@
-use reqwest::{Client, Error};
+use reqwest::Client;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
+use super::CustomError;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Telegram{
@@ -25,7 +26,7 @@ impl Telegram{
         }
     }
 
-    pub async fn send_message(&self, message: &str) -> Result<String, Error>{
+    pub async fn send_message(&self, message: &str) -> Result<String, CustomError>{
         let url = format!("{URL}/bot{}/sendMessage", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -43,7 +44,7 @@ impl Telegram{
             .await?)
     }
 
-    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, Error>{
+    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, CustomError>{
         let url = format!("{URL}/bot{}/sendAudio", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -65,21 +66,15 @@ impl Telegram{
 
 #[cfg(test)]
 mod tests {
-    use dotenv::dotenv;
-    use std::env;
-    use crate::models::telegram::Telegram;
+    use crate::models::config::Configuration;
     use tokio;
 
     #[tokio::test]
     async fn send_audio_test(){
-        dotenv().ok();
-        let token = env::var("TELEGRAM_TOKEN").unwrap();
-        let chat_id = env::var("TELEGRAM_CHAT_ID").unwrap().parse::<i64>().unwrap();
-        let thread_id = env::var("TELEGRAM_THREAD_ID").unwrap().parse::<i64>().unwrap();
+        let config = Configuration::load().await.unwrap();
+        let telegram = config.get_telegram();
         let message = r#"Este es un "audio" de prueba"#;
         let audio = "https://anchor.fm/s/5a5b39c/podcast/play/78552354/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2023-10-13%2Ff899af71-0889-b3fe-07e1-2e6d935da0b1.mp3";
-        println!("{}, {}, {}", token, chat_id, message);
-        let telegram = Telegram::new(token, chat_id, thread_id);
         let result = telegram.send_audio(audio, message).await;
         println!("{:?}", result);
         assert!(result.is_ok())
@@ -87,14 +82,9 @@ mod tests {
 
     #[tokio::test]
     async fn send_message_test(){
-        dotenv().ok();
-        let token = env::var("TELEGRAM_TOKEN").unwrap();
-        let chat_id = env::var("TELEGRAM_CHAT_ID").unwrap().parse::<i64>().unwrap();
-        let thread_id = env::var("TELEGRAM_THREAD_ID").unwrap().parse::<i64>().unwrap();
+        let config = Configuration::load().await.unwrap();
+        let telegram = config.get_telegram();
         let message = r#"Este es un "título" de prueba"#;
-        println!("{}, {}, {}", token, chat_id, message);
-        
-        let telegram = Telegram::new(token, chat_id, thread_id);
         let result = telegram.send_message(&message).await;
         println!("{:?}", result);
         assert!(result.is_ok())

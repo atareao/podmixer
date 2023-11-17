@@ -1,7 +1,7 @@
 use reqwest::Client;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
-use super::CustomError;
+use super::Error;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Telegram{
@@ -26,7 +26,7 @@ impl Telegram{
         }
     }
 
-    pub async fn send_message(&self, message: &str) -> Result<String, CustomError>{
+    pub async fn send_message(&self, message: &str) -> Result<String, Error>{
         let url = format!("{URL}/bot{}/sendMessage", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -44,7 +44,7 @@ impl Telegram{
             .await?)
     }
 
-    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, CustomError>{
+    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, Error>{
         let url = format!("{URL}/bot{}/sendAudio", self.token);
         let message = json!({
             "chat_id": self.chat_id,

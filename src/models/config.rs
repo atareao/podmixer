@@ -2,12 +2,13 @@ use serde::{Serialize, Deserialize};
 use tokio::fs::read_to_string;
 use std::process;
 
+
 use super::{
     Podcast,
     Feed,
     Telegram,
     Twitter,
-    CustomError,
+    Error,
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -44,7 +45,7 @@ impl Configuration{
         &self.twitter
     }
 
-    pub async fn load() -> Result<Configuration, CustomError>{
+    pub async fn load() -> Result<Configuration, Error>{
         let content = read_to_string("config.yml")
             .await?;
         match serde_yaml::from_str(&content){
@@ -56,7 +57,7 @@ impl Configuration{
             }
         }
     }
-    pub async fn save(&self) -> Result<(), CustomError>{
+    pub async fn save(&self) -> Result<(), Error>{
         tokio::fs::write(
             "config.yml",
             serde_yaml::to_string(self)?

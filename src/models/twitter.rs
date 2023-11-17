@@ -6,9 +6,9 @@ use base64::{
 };
 use serde_json::{Value, json};
 use std::collections::HashMap;
-use super::CustomError;
+use super::Error;
 
-const X_URL: &'static str = "https://twitter.com/api";
+const X_URL: &'static str = "https://api.twitter.com";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Twitter{
@@ -28,12 +28,13 @@ impl Twitter {
         }
     }
 
-    async fn update_access_token(&mut self) -> Result<(), CustomError>{
+    async fn update_access_token(&mut self) -> Result<(), Error>{
         let mut basic_auth = String::new();
         STANDARD.encode_string(
             format!("{}:{}", self.client_id, self.client_secret).as_bytes(),
             &mut basic_auth);
-        println!("Basic auth: {basic_auth}");
+        let basic_auth_header = format!("Basic {basic_auth}");
+        println!("Authorization: {basic_auth_header}");
         let url = format!("{X_URL}/2/oauth2/token");
         println!("Url: {url}");
         let mut params = HashMap::new();
@@ -41,22 +42,24 @@ impl Twitter {
         params.insert("refresh_token", &self.refresh_token);
         params.insert("grant_type", &rt);
         params.insert("client_id", &self.client_id);
+        println!("Params: {:?}", params);
         let data: Value = Client::new()
             .post(url)
             .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Authorization", basic_auth)
+            .header("Authorization", basic_auth_header)
             .form(&params)
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
+        println!("Data: {:?}", data);
         self.access_token = data.get("access_token").unwrap().as_str().unwrap().to_string();
         self.refresh_token = data.get("refresh_token").unwrap().as_str().unwrap().to_string();
         Ok(())
     }
 
-    pub async fn post(&mut self, message: &str) -> Result<String, CustomError>{
+    pub async fn post(&mut self, message: &str) -> Result<String, Error>{
         println!("post");
         self.update_access_token().await?;
         let url = format!("{X_URL}/2/tweets");
@@ -83,15 +86,9 @@ mod tests {
 
     #[tokio::test]
     async fn post(){
-        println!("1");
         let mut config = Configuration::load().await.unwrap();
-        println!("2");
         let result = config.twitter.post("Hola desde Wintablet!").await;
-        println!("3");
-        println!("{:?}", result);
         let response = config.save().await;
-        println!("4");
-        println!("{:?}", response);
         assert!(response.is_ok());
         assert!(result.is_ok());
     }

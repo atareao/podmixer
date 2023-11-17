@@ -1,5 +1,4 @@
 mod config;
-mod error;
 mod feed;
 mod podcast;
 mod telegram;
@@ -10,4 +9,5 @@ pub use feed::Feed;
 pub use podcast::Podcast;
 pub use telegram::Telegram;
 pub use twitter::Twitter;
-pub use error::CustomError;
+
+pub type Error = Box<dyn std::error::Error>;

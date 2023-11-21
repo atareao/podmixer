@@ -14,8 +14,8 @@ use super::{
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration{
     log_level: String,
-    frequency: i32,
-    long_in_days: i32,
+    sleep_time: i32,
+    older_than: i32,
     feed: Feed,
     pub podcasts: Vec<Podcast>,
     telegram: Telegram,
@@ -26,11 +26,11 @@ impl Configuration{
     pub fn get_log_level(&self) -> &str{
         &self.log_level
     }
-    pub fn get_frequency(&self) -> i32{
-        self.frequency
+    pub fn get_sleep_time(&self) -> i32{
+        self.sleep_time
     }
-    pub fn get_long_in_days(&self) -> i32{
-        self.long_in_days
+    pub fn get_older_than(&self) -> i32{
+        self.older_than
     }
     pub fn get_feed(&self) -> &Feed{
         &self.feed

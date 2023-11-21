@@ -17,7 +17,7 @@ pub struct Configuration{
     frequency: i32,
     long_in_days: i32,
     feed: Feed,
-    podcasts: Vec<Podcast>,
+    pub podcasts: Vec<Podcast>,
     telegram: Telegram,
     pub twitter: Twitter,
 }

@@ -6,7 +6,7 @@ mod twitter;
 
 pub use config::Configuration;
 pub use feed::Feed;
-pub use podcast::Podcast;
+pub use podcast::{Podcast, CompletePodcast};
 pub use telegram::Telegram;
 pub use twitter::Twitter;
 

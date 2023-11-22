@@ -14,6 +14,8 @@ use super::{
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Configuration{
     log_level: String,
+    url: String,
+    port: u16,
     sleep_time: i32,
     older_than: i32,
     feed: Feed,
@@ -23,6 +25,12 @@ pub struct Configuration{
 }
 
 impl Configuration{
+    pub fn get_url(&self) -> &str{
+        &self.url
+    }
+    pub fn get_port(&self) -> u16{
+        self.port
+    }
     pub fn get_log_level(&self) -> &str{
         &self.log_level
     }

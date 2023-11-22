@@ -6,8 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+axum = { version = "0.6.20", features = ["multipart"] }
+axum-extra = { version = "0.8.0", features = ["cookie"] }
 base64 = "0.21.5"
 chrono = { version = "0.4.31", features = ["serde"] }
+jsonwebtoken = "9.1.0"
 minijinja = { version = "1.0.9", features = ["loader"] }
 openssl = { version = "0.10.59", features = ["vendored"] }
 regex = "1.10.2"
@@ -18,7 +21,7 @@ serde_json = "1.0.108"
 serde_yaml = "0.9.27"
 tokio = { version = "1.33.0", features = ["full", "time"] }
 tower = "0.4.13"
-tower-http = { version = "0.4.4", features = ["trace", "fs"] }
+tower-http = { version = "0.4.4", features = ["trace", "fs", "cors"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.17", features = ["local-time", "env-filter"] }
 

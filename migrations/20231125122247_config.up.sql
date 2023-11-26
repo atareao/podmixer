@@ -11,7 +11,7 @@ INSERT INTO config (key, value) VALUES
     ('jwt_expires_in', '60m'),
     ('jwt_maxage', '60'),
     ('port', '6996'),
-    ('sleep_time', '60'),
+    ('sleep_time', '900'),
     ('older_than', '30'),
     ('feed_title', ''),
     ('feed_link', ''),
@@ -22,10 +22,16 @@ INSERT INTO config (key, value) VALUES
     ('feed_author', ''),
     ('feed_explicit', 'No'),
     ('feed_keywords', ''),
+    ('telegram_active', 'FALSE'),
     ('telegram_token', ''),
     ('telegram_chat_id', ''),
     ('telegram_thread_id', ''),
+    ('telegram_template', '{{title}}
+{{description|truncate(300)}}...'),
+    ('twitter_active', 'FALSE'),
     ('twitter_client_id', ''),
     ('twitter_client_secret', ''),
     ('twitter_access_token', ''),
-    ('twitter_refresh_token', '');
+    ('twitter_refresh_token', ''),
+    ('twitter_template', '{{title}}
+{{description|truncate(100)}}...');

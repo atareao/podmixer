@@ -26,10 +26,10 @@ use models::{
     Param,
     Podcast,
     CompletePodcast,
-    Telegram,
 };
-use chrono::{DateTime, NaiveDateTime};
+use chrono::DateTime;
 use rss::Item;
+use minijinja::{Environment, context};
 
 mod models;
 mod http;
@@ -95,7 +95,20 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
     debug!("Init telegram");
     let telegram = Param::get_telegram(pool).await.unwrap();
     debug!("Init twitter");
-    //let twitter = Param::get_twitter(pool).await.unwrap();
+    let mut twitter = Param::get_twitter(pool).await.unwrap();
+    debug!("Update twitter");
+    if twitter.update_access_token().await.is_ok(){
+        let access_token = twitter.get_access_token();
+        match Param::set(pool, "access_token", access_token).await{
+            Ok(response) => debug!("{:?}", response),
+            Err(e) => error!("{:?}", e),
+        };
+        let refresh_token = twitter.get_refresh_token();
+        match Param::set(pool, "refresh_token", refresh_token).await{
+            Ok(response) => debug!("{:?}", response),
+            Err(e) => error!("{:?}", e),
+        };
+    }
     debug!("Init feed");
     let feed = Param::get_feed(pool).await.unwrap();
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -140,9 +153,38 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
     if generate {
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice(){
-            let message = &episode.title().unwrap();
-            let audio = &episode.enclosure().unwrap().url();
-            telegram.send_audio(&audio, &message).await;
+            if telegram.is_active(){
+                let template = Param::get(pool, "telegram_template")
+                    .await
+                    .unwrap();
+                let mut env = Environment::new();
+                env.add_template("telegram", &template).unwrap();
+                let tmpl = env.get_template("telegram").unwrap();
+                let ctx = context!(
+                    title => episode.title().unwrap(),
+                    description => episode.description().unwrap(),
+                );
+                let audio = &episode.enclosure().unwrap().url();
+                let message = tmpl.render(ctx).unwrap();
+                telegram.send_audio(&audio, &message).await;
+            }
+            if twitter.is_active(){
+                let template = Param::get(pool, "twitter_template")
+                    .await
+                    .unwrap();
+                let mut env = Environment::new();
+                env.add_template("telegram", &template).unwrap();
+                let tmpl = env.get_template("telegram").unwrap();
+                let ctx = context!(
+                    title => episode.title().unwrap(),
+                    description => episode.description().unwrap(),
+                );
+                let message = tmpl.render(ctx).unwrap();
+                match twitter.post(&message).await{
+                    Ok(response) => debug!("{:?}", response),
+                    Err(e) => error!("{:?}", e),
+                }
+            }
             tokio::time::sleep(time::Duration::from_secs(1)).await;
         }
         //Make short feed

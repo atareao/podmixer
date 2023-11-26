@@ -1,11 +1,11 @@
 use reqwest::Client;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
-use super::Error;
 use tracing::{debug, error};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Telegram{
+    active: bool,
     token: String,
     chat_id: i64,
     #[serde(default = "default_thread_id")]
@@ -19,12 +19,17 @@ fn default_thread_id() -> i64{
 const URL: &'static str = "https://api.telegram.org";
 
 impl Telegram{
-    pub fn new(token: String, chat_id: i64, thread_id: i64) -> Self{
+    pub fn new(active: bool, token: String, chat_id: i64, thread_id: i64) -> Self{
         Self{
+            active,
             token,
             chat_id,
             thread_id,
         }
+    }
+
+    pub fn is_active(&self) -> bool{
+        self.active
     }
 
     pub async fn send_message(&self, message: &str){

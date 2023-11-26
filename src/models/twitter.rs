@@ -12,6 +12,7 @@ const X_URL: &'static str = "https://api.twitter.com";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Twitter{
+    active: bool,
     client_id: String,
     client_secret: String,
     access_token: String,
@@ -19,8 +20,9 @@ pub struct Twitter{
 }
 
 impl Twitter {
-    pub fn new(client_id: String, client_secret: String, access_token: String, refresh_token: String) -> Self{
+    pub fn new(active: bool, client_id: String, client_secret: String, access_token: String, refresh_token: String) -> Self{
         Self{
+            active,
             client_id,
             client_secret,
             access_token,
@@ -28,7 +30,19 @@ impl Twitter {
         }
     }
 
-    async fn update_access_token(&mut self) -> Result<(), Error>{
+    pub fn is_active(&self) -> bool{
+        self.active
+    }
+
+    pub fn get_access_token(&self) -> &str{
+        &self.access_token
+    }
+
+    pub fn get_refresh_token(&self) -> &str{
+        &self.refresh_token
+    }
+
+    pub async fn update_access_token(&mut self) -> Result<(), Error>{
         let mut basic_auth = String::new();
         STANDARD.encode_string(
             format!("{}:{}", self.client_id, self.client_secret).as_bytes(),

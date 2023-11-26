@@ -12,10 +12,10 @@ ready(() => {
                 const article = saveButton.parentNode;
                 const data = [];
                 Array.from(article.children).forEach((element) => {
-                    if (element.tagName === "INPUT") {
+                    if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
                         data.push({
                             key: element.name,
-                            value: element.value,
+                            value: ((element.type === "checkbox") ? element.checked : element.value),
                         });
                     }
                 });
@@ -46,10 +46,14 @@ ready(() => {
 
 function updateInputs(children, data) {
     Array.from(children).forEach((element) => {
-        if (element.tagName === "INPUT") {
+        if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
             const newValue = getValue(data, element.name);
             if (newValue != null) {
-                element.value = newValue;
+                if(element.type === "checkbox"){
+                    element.checked = newValue;
+                }else{
+                    element.value = newValue;
+                }
             }
         }
     });

@@ -67,6 +67,9 @@ impl Param{
     }
 
     pub async fn get_telegram(pool: &SqlitePool) -> Result<Telegram, Error> {
+        let active: bool = Self::get(pool, "telegram_active")
+            .await?
+            .parse()?;
         let token = Self::get(pool, "telegram_token").await?;
         let chat_id: i64 = Self::get(pool, "telegram_chat_id")
             .await?
@@ -74,7 +77,7 @@ impl Param{
         let thread_id = Self::get(pool, "telegram_thread_id")
             .await?
             .parse()?;
-        Ok(Telegram::new(token, chat_id, thread_id))
+        Ok(Telegram::new(active, token, chat_id, thread_id))
     }
 
     pub async fn get_feed(pool: &SqlitePool) -> Result<Feed, Error> {
@@ -92,11 +95,14 @@ impl Param{
     }
 
     pub async fn get_twitter(pool: &SqlitePool) -> Result<Twitter, Error> {
+        let active: bool = Self::get(pool, "telegram_active")
+            .await?
+            .parse()?;
         let client_id = Self::get(pool, "client_id").await?;
         let client_secret = Self::get(pool, "client_secret").await?;
         let access_token = Self::get(pool, "access_token").await?;
         let refresh_token = Self::get(pool, "refresh_token").await?;
-        Ok(Twitter::new(client_id, client_secret, access_token, refresh_token))
+        Ok(Twitter::new(active, client_id, client_secret, access_token, refresh_token))
     }
 
     pub fn get_value(&self) -> &str{

@@ -22,6 +22,19 @@ pub struct Feed{
 }
 
 impl Feed {
+    pub fn new(title: String, link: String, image_url: String, category: String, rating: String, description: String, author: String, explicit: String, keywords: String) -> Self{
+        Self{
+            title,
+            link,
+            image_url,
+            category,
+            rating,
+            description,
+            author,
+            explicit,
+            keywords,
+        }
+    }
     pub fn rss(&self, episodes: Vec<Item>) -> Result<String, Error>{
         let image = ImageBuilder::default()
             .url(&self.image_url)
@@ -44,28 +57,5 @@ impl Feed {
         channel.set_items(episodes);
         channel.pretty_write_to(std::io::sink(), b' ', 4)?;
         Ok(channel.to_string())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::super::Configuration;
-    use chrono::{Utc, Duration};
-    use super::CompletePodcast;
-    use tokio;
-
-    #[tokio::test]
-    async fn test_feed_older_than(){
-        let config = Configuration::load().await.unwrap();
-        let last_seven_days = (Utc::now() - Duration::days(7)).naive_local();
-        let mut episodes = Vec::new();
-        for podcast in config.podcasts.as_slice(){
-            let complete = CompletePodcast::new(podcast).await.unwrap();
-            let mut items = complete.get_older_than(&last_seven_days).unwrap();
-            episodes.append(items.as_mut());
-        }
-        let feed = config.get_feed().rss(episodes).unwrap();
-        println!("{}", feed);
-        assert!(feed != "")
     }
 }

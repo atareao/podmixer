@@ -1,0 +1,21 @@
+.switcher {
+  position: fixed;
+  right: calc(var(--spacing) / 2 + var(--scrollbar-width, 0px));
+  bottom: var(--spacing);
+  width: auto;
+  margin-bottom: 0;
+  padding: 0.75rem;
+  border-radius: 2rem;
+  box-shadow: var(--card-box-shadow);
+  line-height: 1;
+  text-align: right;
+}
+.switcher i {
+  display: inline-block;
+  max-width: 0;
+  padding: 0;
+  overflow: hidden;
+  font-style: normal;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}

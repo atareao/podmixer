@@ -2,6 +2,7 @@ use reqwest::Client;
 use serde_json::json;
 use serde::{Serialize, Deserialize};
 use super::Error;
+use tracing::{debug, error};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Telegram{
@@ -26,7 +27,7 @@ impl Telegram{
         }
     }
 
-    pub async fn send_message(&self, message: &str) -> Result<String, Error>{
+    pub async fn send_message(&self, message: &str){
         let url = format!("{URL}/bot{}/sendMessage", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -34,17 +35,28 @@ impl Telegram{
             "text": message,
             "parse_mode": "HTML",
         });
-        Ok(Client::new()
+        match Client::new()
             .post(url)
             .json(&message)
             .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?)
+            .await{
+                Ok(data) => {
+                    match data.error_for_status(){
+                        Ok(response) => {
+                            match response.text().await {
+                                Ok(text) => debug!("{:?}", text),
+                                Err(e) => error!("{:?}", e),
+                            }
+
+                        },
+                        Err(e) => error!("{:?}", e),
+                    }
+                },
+                Err(e) => error!("{:?}", e),
+            };
     }
 
-    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, Error>{
+    pub async fn send_audio(&self, audio: &str, caption: &str) {
         let url = format!("{URL}/bot{}/sendAudio", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -53,41 +65,24 @@ impl Telegram{
             "caption": caption,
             "parse_mode": "HTML",
         });
-        Ok(Client::new()
+        match Client::new()
             .post(url)
             .json(&message)
             .send()
-            .await?
-            .error_for_status()?
-            .text()
-            .await?)
+            .await{
+                Ok(data) => {
+                    match data.error_for_status(){
+                        Ok(response) => {
+                            match response.text().await {
+                                Ok(text) => debug!("{:?}", text),
+                                Err(e) => error!("{:?}", e),
+                            }
+
+                        },
+                        Err(e) => error!("{:?}", e),
+                    }
+                },
+                Err(e) => error!("{:?}", e),
+            };
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::models::config::Configuration;
-    use tokio;
-
-    #[tokio::test]
-    async fn send_audio_test(){
-        let config = Configuration::load().await.unwrap();
-        let telegram = config.get_telegram();
-        let message = r#"Este es un "audio" de prueba"#;
-        let audio = "https://anchor.fm/s/5a5b39c/podcast/play/78552354/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2023-10-13%2Ff899af71-0889-b3fe-07e1-2e6d935da0b1.mp3";
-        let result = telegram.send_audio(audio, message).await;
-        println!("{:?}", result);
-        assert!(result.is_ok())
-    }
-
-    #[tokio::test]
-    async fn send_message_test(){
-        let config = Configuration::load().await.unwrap();
-        let telegram = config.get_telegram();
-        let message = r#"Este es un "título" de prueba"#;
-        let result = telegram.send_message(&message).await;
-        println!("{:?}", result);
-        assert!(result.is_ok())
-    }
-}
-

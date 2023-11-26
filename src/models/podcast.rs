@@ -1,19 +1,85 @@
 use serde::{Deserialize, Serialize};
+use sqlx::{sqlite::{SqlitePool, SqliteRow}, query, Row};
 use rss::{Channel, Item};
 use super::Error;
 use chrono::{NaiveDateTime, DateTime, Utc, Duration};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct Podcast{
+pub struct FormPodcast{
     pub name: String,
     pub url: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Podcast{
+    pub id: i64,
+    pub name: String,
+    pub url: String,
+    pub active: bool,
     pub last_pub_date: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug)]
 pub struct CompletePodcast{
     pub podcast: Podcast,
     pub channel: Channel,
+}
+
+impl Podcast{
+    fn from_row(row: SqliteRow) -> Self{
+        Self{
+            id: row.get("id"),
+            name: row.get("name"),
+            url: row.get("url"),
+            active: row.get("active"),
+            last_pub_date: row.get("last_pub_date"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        }
+    }
+    pub async fn get(pool: &SqlitePool) -> Result<Vec<Podcast>, sqlx::error::Error>{
+        let sql = "SELECT * FROM podcasts";
+        query(sql)
+            .map(Self::from_row)
+            .fetch_all(pool)
+            .await
+    }
+
+    pub async fn update(pool: &SqlitePool, podcast: &Podcast) -> Result<Podcast, sqlx::error::Error>{
+        let sql = "UPDATE podcasts SET name=$1, url=$2, active=$3,
+                   last_pub_date=$4, updated_at=$5 WHERE id=$6 RETURNING *";
+        query(sql)
+            .bind(podcast.name.to_owned())
+            .bind(podcast.url.to_owned())
+            .bind(podcast.active)
+            .bind(podcast.last_pub_date)
+            .bind(Utc::now())
+            .bind(podcast.id)
+            .map(Self::from_row)
+            .fetch_one(pool)
+            .await
+    }
+
+    pub async fn create(pool: &SqlitePool, name: &str, url: &str) -> Result<Podcast, sqlx::error::Error>{
+        let sql = "INSERT INTO podcasts (name, url) VALUES ($1, $2) RETURNING *";
+        query(sql)
+            .bind(name)
+            .bind(url)
+            .map(Self::from_row)
+            .fetch_one(pool)
+            .await
+    }
+
+    pub async fn delete(pool: &SqlitePool, id: i64) -> Result<Podcast, sqlx::error::Error>{
+        let sql = "DELETE FROM podcasts WHERE id = $1 RETURNING *";
+        query(sql)
+            .bind(id)
+            .map(Self::from_row)
+            .fetch_one(pool)
+            .await
+    }
+
 }
 
 impl CompletePodcast {
@@ -32,13 +98,20 @@ impl CompletePodcast {
             channel,
         })
     }
+    pub fn get_all(&self) -> Vec<Item>{
+        let mut all: Vec<Item> = Vec::new();
+        for item in self.channel.items.as_slice(){
+            all.push(item.clone());
+        }
+        all
+    }
 
     pub fn get_new(&self) -> Result<Vec<Item>, Error>{
         Ok(self.get_older_than(&self.podcast.last_pub_date)?)
     }
 
-    pub fn get_older_than_days(&self, days: i64) -> Result<Vec<Item>, Error>{
-        let datetime = (Utc::now() - Duration::days(days)).naive_local();
+    pub fn get_older_than_days(&self, days: i32) -> Result<Vec<Item>, Error>{
+        let datetime = (Utc::now() - Duration::days(days.into())).naive_local();
         Ok(self.get_older_than(&datetime)?)
     }
 
@@ -54,42 +127,5 @@ impl CompletePodcast {
             }
         }
         Ok(older_than)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::models::config::Configuration;
-    use super::CompletePodcast;
-    use tokio;
-
-    #[tokio::test]
-    async fn get_new(){
-        let config = Configuration::load().await.unwrap();
-        let podcast = CompletePodcast::new(config.get_podcasts().first().unwrap())
-            .await
-            .unwrap();
-        let items = podcast.get_new();
-        assert!(items.is_ok());
-    }
-
-    #[tokio::test]
-    async fn get_older_than_days(){
-        let config = Configuration::load().await.unwrap();
-        let podcast = CompletePodcast::new(config.get_podcasts().first().unwrap())
-            .await
-            .unwrap();
-        let items = podcast.get_older_than_days(7);
-        assert!(items.is_ok());
-    }
-
-    #[tokio::test]
-    async fn get_older_than_days_zero(){
-        let config = Configuration::load().await.unwrap();
-        let podcast = CompletePodcast::new(config.get_podcasts().first().unwrap())
-            .await
-            .unwrap();
-        let items = podcast.get_older_than_days(0);
-        assert!(items.is_ok());
     }
 }

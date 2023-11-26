@@ -78,18 +78,3 @@ impl Twitter {
             .await?)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::models::config::Configuration;
-    use tokio;
-
-    #[tokio::test]
-    async fn post(){
-        let mut config = Configuration::load().await.unwrap();
-        let result = config.twitter.post("Hola desde Wintablet!").await;
-        let response = config.save().await;
-        assert!(response.is_ok());
-        assert!(result.is_ok());
-    }
-}

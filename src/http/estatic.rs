@@ -8,12 +8,12 @@ use tower_http::services::ServeDir;
 use crate::http::AppState;
 
 pub fn router() -> Router<Arc<AppState>> {
-    let audios_server_dir = ServeDir::new("./audios")
+    let feeds_server_dir = ServeDir::new("./rss")
         .not_found_service(handle_error.into_service());
     let assets_server_dir = ServeDir::new("./assets")
         .not_found_service(handle_error.into_service());
     Router::new()
-        .nest_service("/media", audios_server_dir)
+        .nest_service("/rss", feeds_server_dir)
         .nest_service("/assets", assets_server_dir)
 }
 

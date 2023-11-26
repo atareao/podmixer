@@ -1,25 +1,29 @@
 use std::sync::Arc;
 use axum::{
     extract::State,
-    http::{header, Request, StatusCode},
+    http::{header, Request},
     middleware::Next,
-    response::IntoResponse,
-    Json,
+    response::{IntoResponse, Html},
 };
 
 use axum_extra::extract::cookie::CookieJar;
 use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::Serialize;
+use minijinja::context;
 
-use crate::{
-    http::AppState,
-    models::user::{TokenClaims, User},
+use super::AppState;
+use super::super::models::Param;
+use super::ENV;
+
+use crate::models::{
+    User,
+    TokenClaims
 };
 
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub status: &'static str,
-    pub message: String,
+    pub message: &'static str,
 }
 
 pub async fn auth<B>(
@@ -27,7 +31,7 @@ pub async fn auth<B>(
     State(app_state): State<Arc<AppState>>,
     mut req: Request<B>,
     next: Next<B>,
-) -> Result<impl IntoResponse, (StatusCode, Json<ErrorResponse>)> {
+) -> Result<impl IntoResponse, Html<String>> {
     let token = cookie_jar
         .get("token")
         .map(|cookie| cookie.value().to_string())
@@ -45,54 +49,43 @@ pub async fn auth<B>(
         });
 
     let token = token.ok_or_else(|| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "You are not logged in, please provide token".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
+        let msg = "You are not logged. Please <a href='/login'>log in</a>";
+        get_html_error(&app_state, msg)
     })?;
 
     let claims = decode::<TokenClaims>(
         &token,
-        &DecodingKey::from_secret(app_state.config.get_secret().as_ref()),
+        &DecodingKey::from_secret(
+            Param::get_secret(&app_state.pool).await.as_bytes()),
         &Validation::default(),
     )
     .map_err(|_| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "Invalid token".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
+        let msg = "Invalid token. Please <a href='/login'>log in</a>";
+        get_html_error(&app_state, msg)
     })?
     .claims;
 
-    let user_id = &claims.sub.to_string().parse::<i64>().map_err(|_| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "Invalid token".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
-    })?;
-    let user = User::read(&app_state.pool, *user_id)
+    let user_name = &claims.sub.to_string();
+    let user = User::get_by_name(&app_state.pool, user_name)
         .await
-        .map_err(|e| {
-            let json_error = ErrorResponse {
-                status: "fail",
-                message: format!("Error fetching user from database: {}", e),
-            };
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(json_error))
-        })?;
-
-    let user = user.ok_or_else(|| {
-        let json_error = ErrorResponse {
-            status: "fail",
-            message: "The user belonging to this token no longer exists".to_string(),
-        };
-        (StatusCode::UNAUTHORIZED, Json(json_error))
+        .map_err(|_e| {
+        let msg = "The user belonging to this token no longer exists. Please <a href='/login'>log in</a>";
+        get_html_error(&app_state, msg)
     })?;
+
 
     req.extensions_mut().insert(user);
     Ok(next.run(req).await)
 }
 
+fn get_html_error(_app_state: &Arc<AppState>, msg: &str) -> Html<String>{
+    let template = ENV.get_template("error.html").unwrap();
+    let ctx = context! {
+        title             => "Podmixer",
+        error_title       => "Error",
+        error_description => msg,
+    };
+    let response = Html(template.render(ctx).unwrap());
+    response
+}
 

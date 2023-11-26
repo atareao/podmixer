@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{title}}{% endblock title %}
+
+{% block head %}
+{{ super() }}
+<style type="text/css">
+    .important {
+        color: #336699;
+    }
+</style>
+{% endblock head %}
+{% block main %}
+<div class="is-center">
+    <h1>{{title}}</h1>
+</div>
+<a id="logout" href="/logout" role="button">
+    <i class="fa-solid fa-right-from-bracket"></i>
+</a>
+<article>
+    <h3>General</h3>
+    <label for="url">Title</label>
+    <input type="text" name="url" placeholder="Url" value="{{url}}">
+    <label for="port">Port</label>
+    <input type="number" name="port" placeholder="6996" value="{{port}}">
+    <label for="sleep_time">Sleep time</label>
+    <input type="number" name="sleep_time" placeholder="60" value="{{sleep_time}}">
+    <label for="Older than">Older than</label>
+    <input type="number" name="older_than" placeholder="60" value="{{older_than}}">
+    <label for="jwt_secret">jwt secret</label>
+    <input type="text" name="jwt_secret" placeholder="jwt secret" value="{{jwt_secret}}">
+    <label for="jwt_expires_in">jwt expires in</label>
+    <input type="text" name="jwt_expires_in" placeholder="jwt expires in" value="{{jwt_expires_in}}">
+    <label for="jwt_maxage">jwt max age</label>
+    <input type="number" name="jwt_maxage" placeholder="jwt max age" value="{{jwt_maxage}}">
+    <a href="#" role="button" class="save-button">
+        <i class="fa-solid fa-floppy-disk"></i>
+    </a>
+</article>
+
+<article>
+    <h3>Feed</h3>
+    <label for="feed_title">Title</label>
+    <input type="text" name="feed_title" placeholder="Title" value="{{feed_title}}">
+    <label for="feed_link">Link</label>
+    <input type="text" name="feed_link" placeholder="Link" value="{{feed_link}}">
+    <label for="feed_image_url">Image url</label>
+    <input type="text" name="feed_image_url" placeholder="Image url" value="{{feed_image_url}}">
+    <label for="feed_category">Category</label>
+    <input type="text" name="feed_category" placeholder="Category" value="{{feed_category}}">
+    <label for="feed_rating">Rating</label>
+    <input type="text" name="feed_rating" placeholder="Rating" value="{{feed_rating}}">
+    <label for="feed_description">Description</label>
+    <input type="text" name="feed_description" placeholder="Description" value="{{feed_description}}">
+    <label for="feed_author">Author</label>
+    <input type="text" name="feed_author" placeholder="Author" value="{{feed_author}}">
+    <label for="feed_explicit">Explicit</label>
+    <input type="text" name="feed_explicit" placeholder="No" value="{{feed_explicit}}">
+    <label for="feed_keywords">Keyworkds</label>
+    <input type="text" name="feed_keywords" placeholder="Keywords" value="{{feed_keywords}}">
+    <a href="#" role="button" class="save-button">
+        <i class="fa-solid fa-floppy-disk"></i>
+    </a>
+</article>
+<article>
+    <h3>Telegram</h3>
+    <label for="telegram_token">Token</label>
+    <input type="text" name="telegram_token" placeholder="token" value="{{telegram_token}}">
+    <label for="telegram_chat_id">Chat Id</label>
+    <input type="number" name="telegram_chat_id" placeholder="Chat Id" value="{{telegram_chat_id}}">
+    <label for="telegram_thread_id">Thread Id</label>
+    <input type="number" name="telegram_thread_id" placeholder="Thread Id" value="{{telegram_thread_id}}">
+    <a href="#" role="button" class="save-button">
+    <i class="fa-solid fa-floppy-disk"></i>
+    </a>
+</article>
+<article>
+    <h3>Twitter</h3>
+    <label for="twitter_client_id">Client Id</label>
+    <input type="text" name="twitter_client_id" placeholder="Client Id" value="{{twitter_client_id}}">
+    <label for="twitter_client_secret">Client Secret</label>
+    <input type="text" name="twitter_client_secret" placeholder="Client Secret" value="{{twitter_client_secret}}">
+    <label for="twitter_access_token">Access Token</label>
+    <input type="text" name="twitter_access_token" placeholder="Access Token" value="{{twitter_access_token}}">
+    <label for="twitter_refresh_token">Refresh Token</label>
+    <input type="text" name="twitter_refresh_token" placeholder="Refresh Token" value="{{twitter_refresh_token}}">
+
+    <a href="#" role="button" class="save-button">
+    <i class="fa-solid fa-floppy-disk"></i>
+    </a>
+</article>
+{% endblock main %}
+{% block scripts %}
+<script src="/assets/js/config.js"></script>
+{% endblock scripts %}

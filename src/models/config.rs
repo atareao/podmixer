@@ -67,9 +67,10 @@ impl Param{
     }
 
     pub async fn get_telegram(pool: &SqlitePool) -> Result<Telegram, Error> {
-        let active: bool = Self::get(pool, "telegram_active")
-            .await?
-            .parse()?;
+        debug!("get_telegram");
+        let active_str = Self::get(pool, "telegram_active")
+            .await?;
+        let active = active_str == "TRUE";
         let token = Self::get(pool, "telegram_token").await?;
         let chat_id: i64 = Self::get(pool, "telegram_chat_id")
             .await?
@@ -81,6 +82,7 @@ impl Param{
     }
 
     pub async fn get_feed(pool: &SqlitePool) -> Result<Feed, Error> {
+        debug!("get_feed");
         let feed_title = Self::get(pool, "feed_title").await?;
         let feed_link = Self::get(pool, "feed_link").await?;
         let feed_image_url = Self::get(pool, "feed_image_url").await?;
@@ -95,13 +97,14 @@ impl Param{
     }
 
     pub async fn get_twitter(pool: &SqlitePool) -> Result<Twitter, Error> {
-        let active: bool = Self::get(pool, "telegram_active")
-            .await?
-            .parse()?;
-        let client_id = Self::get(pool, "client_id").await?;
-        let client_secret = Self::get(pool, "client_secret").await?;
-        let access_token = Self::get(pool, "access_token").await?;
-        let refresh_token = Self::get(pool, "refresh_token").await?;
+        debug!("get_twitter");
+        let active_str = Self::get(pool, "twitter_active")
+            .await?;
+        let active = active_str == "TRUE";
+        let client_id = Self::get(pool, "twitter_client_id").await?;
+        let client_secret = Self::get(pool, "twitter_client_secret").await?;
+        let access_token = Self::get(pool, "twitter_access_token").await?;
+        let refresh_token = Self::get(pool, "twitter_refresh_token").await?;
         Ok(Twitter::new(active, client_id, client_secret, access_token, refresh_token))
     }
 

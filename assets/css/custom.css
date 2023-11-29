@@ -12,7 +12,6 @@
 }
 .switcher i {
   display: inline-block;
-  max-width: 0;
   padding: 0;
   overflow: hidden;
   font-style: normal;

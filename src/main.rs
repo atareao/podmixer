@@ -30,6 +30,7 @@ use models::{
 use chrono::DateTime;
 use rss::Item;
 use minijinja::{Environment, context};
+use html2text::from_read;
 
 mod models;
 mod http;
@@ -158,11 +159,14 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                     .await
                     .unwrap();
                 let mut env = Environment::new();
+                env.add_filter("truncate", truncate);
                 env.add_template("telegram", &template).unwrap();
                 let tmpl = env.get_template("telegram").unwrap();
                 let ctx = context!(
                     title => episode.title().unwrap(),
-                    description => episode.description().unwrap(),
+                    description => from_read(
+                        episode.description().unwrap().as_bytes(),
+                        5000),
                 );
                 let audio = &episode.enclosure().unwrap().url();
                 let message = tmpl.render(ctx).unwrap();
@@ -173,11 +177,14 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                     .await
                     .unwrap();
                 let mut env = Environment::new();
-                env.add_template("telegram", &template).unwrap();
-                let tmpl = env.get_template("telegram").unwrap();
+                env.add_template("twitter", &template).unwrap();
+                env.add_filter("truncate", truncate);
+                let tmpl = env.get_template("twitter").unwrap();
                 let ctx = context!(
                     title => episode.title().unwrap(),
-                    description => episode.description().unwrap(),
+                    description => from_read(
+                        episode.description().unwrap().as_bytes(),
+                        5000),
                 );
                 let message = tmpl.render(ctx).unwrap();
                 match twitter.post(&message).await{
@@ -210,4 +217,11 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
             Err(e) => error!("{:?}", e),
         };
     }
+}
+
+fn truncate(value: String, length: usize) -> String {
+    debug!("truncate");
+    let mut cloned = value.clone();
+    cloned.truncate(length);
+    cloned
 }

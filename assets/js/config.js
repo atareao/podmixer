@@ -15,7 +15,12 @@ ready(() => {
                     if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
                         data.push({
                             key: element.name,
-                            value: ((element.type === "checkbox") ? element.checked : element.value),
+                            value:
+                                element.type === "checkbox"
+                                    ? element.checked
+                                        ? "TRUE"
+                                        : "FALSE"
+                                    : element.value,
                         });
                     }
                 });
@@ -49,9 +54,9 @@ function updateInputs(children, data) {
         if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
             const newValue = getValue(data, element.name);
             if (newValue != null) {
-                if(element.type === "checkbox"){
-                    element.checked = newValue;
-                }else{
+                if (element.type === "checkbox") {
+                    element.checked = newValue === "TRUE";
+                } else {
                     element.value = newValue;
                 }
             }

@@ -62,7 +62,9 @@ impl Telegram{
     }
 
     pub async fn send_audio(&self, audio: &str, caption: &str) {
+        debug!("send_audio");
         let url = format!("{URL}/bot{}/sendAudio", self.token);
+        debug!("url: {url}");
         let message = json!({
             "chat_id": self.chat_id,
             "message_thread_id": self.thread_id,
@@ -70,6 +72,7 @@ impl Telegram{
             "caption": caption,
             "parse_mode": "HTML",
         });
+        debug!("message: {:?}", message);
         match Client::new()
             .post(url)
             .json(&message)

@@ -3,8 +3,8 @@
     var e = {
         _scheme: "auto",
         change: {
-            light: "<i>Turn on dark mode</i>",
-            dark: "<i>Turn off dark mode</i>",
+            light: '<i class="fa-solid fa-moon"></i>',
+            dark: '<i class="fa-solid fa-sun"></i>',
         },
         buttonsTarget: ".theme-switcher",
         localStorageKey: "picoPreferredColorScheme",

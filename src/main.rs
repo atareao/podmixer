@@ -93,23 +93,6 @@ async fn main(){
 }
 
 async fn do_the_work(pool: &SqlitePool, older_than: i32) {
-    debug!("Init telegram");
-    let telegram = Param::get_telegram(pool).await.unwrap();
-    debug!("Init twitter");
-    let mut twitter = Param::get_twitter(pool).await.unwrap();
-    debug!("Update twitter");
-    if twitter.update_access_token().await.is_ok(){
-        let access_token = twitter.get_access_token();
-        match Param::set(pool, "access_token", access_token).await{
-            Ok(response) => debug!("{:?}", response),
-            Err(e) => error!("{:?}", e),
-        };
-        let refresh_token = twitter.get_refresh_token();
-        match Param::set(pool, "refresh_token", refresh_token).await{
-            Ok(response) => debug!("{:?}", response),
-            Err(e) => error!("{:?}", e),
-        };
-    }
     debug!("Init feed");
     let feed = Param::get_feed(pool).await.unwrap();
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -152,6 +135,33 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
         }
     }
     if generate {
+        debug!("Init telegram");
+        let telegram = Param::get_telegram(pool).await.unwrap();
+        debug!("Init twitter");
+        let mut twitter = Param::get_twitter(pool).await.unwrap();
+        if twitter.is_active(){
+            debug!("What before access_token: {}", twitter.get_access_token());
+            debug!("What before refresh_token: {}", twitter.get_refresh_token());
+            debug!("Update twitter");
+            if twitter.update_access_token().await.is_ok(){
+                let twitter_access_token = twitter.get_access_token();
+                debug!("Access token: {twitter_access_token}");
+                match Param::set(pool, "twitter_access_token", twitter_access_token).await{
+                    Ok(response) => debug!("{:?}", response),
+                    Err(e) => error!("{:?}", e),
+                };
+                let twitter_refresh_token = twitter.get_refresh_token();
+                debug!("Refresh token: {twitter_refresh_token}");
+                match Param::set(pool, "twitter_refresh_token", twitter_refresh_token).await{
+                    Ok(response) => debug!("{:?}", response),
+                    Err(e) => error!("{:?}", e),
+                };
+            }else{
+                error!("Someting goes wrong");
+            }
+            debug!("What after access_token: {}", twitter.get_access_token());
+            debug!("What after refresh_token: {}", twitter.get_refresh_token());
+        }
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice(){
             if telegram.is_active(){
@@ -167,6 +177,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                     description => from_read(
                         episode.description().unwrap().as_bytes(),
                         5000),
+                    link => episode.link().unwrap(),
                 );
                 let audio = &episode.enclosure().unwrap().url();
                 let message = tmpl.render(ctx).unwrap();
@@ -185,6 +196,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                     description => from_read(
                         episode.description().unwrap().as_bytes(),
                         5000),
+                    link => episode.link().unwrap(),
                 );
                 let message = tmpl.render(ctx).unwrap();
                 match twitter.post(&message).await{

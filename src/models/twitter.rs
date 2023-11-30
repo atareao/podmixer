@@ -1,11 +1,7 @@
 use serde::{Serialize, Deserialize};
 use reqwest::Client;
-use base64::{
-    Engine,
-    engine::general_purpose::STANDARD
-};
 use serde_json::{Value, json};
-use std::collections::HashMap;
+use tracing::debug;
 use super::Error;
 
 const X_URL: &'static str = "https://api.twitter.com";
@@ -43,40 +39,39 @@ impl Twitter {
     }
 
     pub async fn update_access_token(&mut self) -> Result<(), Error>{
-        let mut basic_auth = String::new();
-        STANDARD.encode_string(
-            format!("{}:{}", self.client_id, self.client_secret).as_bytes(),
-            &mut basic_auth);
-        let basic_auth_header = format!("Basic {basic_auth}");
-        println!("Authorization: {basic_auth_header}");
+        debug!("Update access token");
         let url = format!("{X_URL}/2/oauth2/token");
-        println!("Url: {url}");
-        let mut params = HashMap::new();
-        let rt = String::from("refresh_token");
-        params.insert("refresh_token", &self.refresh_token);
-        params.insert("grant_type", &rt);
-        params.insert("client_id", &self.client_id);
-        println!("Params: {:?}", params);
+        debug!("Url: {url}");
+        let params = [
+            ("refresh_token", &self.refresh_token),
+            ("grant_type", &"refresh_token".to_string()),
+            ("client_id", &self.client_id)
+        ];
+        // .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+        debug!("Params: {:?}", params);
+        debug!("Before access_token: {}", &self.access_token);
+        debug!("Before refresh_token: {}", &self.refresh_token);
         let data: Value = Client::new()
             .post(url)
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .header("Authorization", basic_auth_header)
+            .basic_auth(&self.client_id, Some(&self.client_secret))
             .form(&params)
             .send()
             .await?
             .error_for_status()?
             .json()
             .await?;
-        println!("Data: {:?}", data);
+        debug!("Data: {:?}", data);
         self.access_token = data.get("access_token").unwrap().as_str().unwrap().to_string();
         self.refresh_token = data.get("refresh_token").unwrap().as_str().unwrap().to_string();
+        debug!("New access_token: {}", &self.access_token);
+        debug!("New refresh_token: {}", &self.refresh_token);
         Ok(())
     }
 
     pub async fn post(&mut self, message: &str) -> Result<String, Error>{
-        println!("post");
-        self.update_access_token().await?;
+        debug!("post");
         let url = format!("{X_URL}/2/tweets");
+        debug!("url: {url}. message: {message}");
         let message = json!({
             "text": message
         });
@@ -90,5 +85,32 @@ impl Twitter {
             .error_for_status()?
             .text()
             .await?)
+    }
+}
+
+#[cfg(test)]
+mod test{
+    use super::Twitter;
+    use std::str::FromStr;
+    use tracing_subscriber::{
+        EnvFilter,
+        layer::SubscriberExt,
+        util::SubscriberInitExt
+};
+
+    #[tokio::test]
+    async fn twitter(){
+        tracing_subscriber::registry()
+            .with(EnvFilter::from_str("debug").unwrap())
+            .with(tracing_subscriber::fmt::layer())
+        .init();
+        let active = true;
+        let client_id = "".to_string();
+        let client_secret = "".to_string();
+        let access_token = "".to_string();
+        let refresh_token = "".to_string();
+        let mut twitter = Twitter::new(active, client_id, client_secret, access_token, refresh_token);
+        assert!(twitter.update_access_token().await.is_ok())
+
     }
 }

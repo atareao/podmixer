@@ -29,6 +29,16 @@ run:
                --name {{name}} \
                {{user}}/{{name}}
 
+sql sql:
+    @echo "sql: {{sql}}"
+    docker run --rm \
+               --init \
+               -it \
+               -e DB_URL='/app/db/podmixer.db' \
+               -v db:/app/db \
+               --name podmixerdb \
+               {{user}}/{{name}} \
+               sqlite3 /app/db/podmixer.db "{{sql}}"
 exe:
     docker run --rm \
                --init \

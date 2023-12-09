@@ -35,23 +35,23 @@ RUN cargo build --release --target $TARGET && \
 ###############################################################################
 ## Final image
 ###############################################################################
-FROM alpine:3.18
+FROM alpine:3.19
 
 ENV USER=app \
     UID=1000
 
 RUN apk add --update --no-cache \
             tzdata~=2023c \
-            sqlite~=3.41 && \
+            sqlite~=3.44 && \
     rm -rf /var/cache/apk && \
     rm -rf /var/lib/app/lists && \
-    mkdir -p /app/db
+    mkdir -p /app/db && \
+    mkdir -p /app/rss
 
 # Copy our build
 COPY --from=builder /app/podmixer /app/
 COPY ./assets /app/assets/
 COPY ./migrations /app/migrations/
-COPY ./rss /app/rss/
 COPY ./templates /app/templates/
 
 # Create the user

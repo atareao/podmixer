@@ -25,6 +25,7 @@ run:
                -e RUST_ENV='production' \
                -e DB_URL='/app/db/podmixer.db' \
                -v db:/app/db \
+               -v rss:/app/rss \
                --publish '6996:6996' \
                --name {{name}} \
                {{user}}/{{name}}
@@ -39,6 +40,16 @@ sql sql:
                --name podmixerdb \
                {{user}}/{{name}} \
                sqlite3 /app/db/podmixer.db "{{sql}}"
+fields table:
+    docker run --rm \
+               --init \
+               -it \
+               -e DB_URL='/app/db/podmixer.db' \
+               -v db:/app/db \
+               --name podmixerdb \
+               {{user}}/{{name}} \
+               sqlite3 /app/db/podmixer.db "PRAGMA table_info({{table}})"
+
 exe:
     docker run --rm \
                --init \

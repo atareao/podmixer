@@ -40,11 +40,8 @@ pub async fn auth<B>(
                 .get(header::AUTHORIZATION)
                 .and_then(|auth_header| auth_header.to_str().ok())
                 .and_then(|auth_value| {
-                    if auth_value.starts_with("Bearer ") {
-                        Some(auth_value[7..].to_owned())
-                    } else {
-                        None
-                    }
+                    auth_value.strip_prefix("Bearer ")
+                        .map(|value| value.to_string())
                 })
         });
 
@@ -85,7 +82,6 @@ fn get_html_error(_app_state: &Arc<AppState>, msg: &str) -> Html<String>{
         error_title       => "Error",
         error_description => msg,
     };
-    let response = Html(template.render(ctx).unwrap());
-    response
+    Html(template.render(ctx).unwrap())
 }
 

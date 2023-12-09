@@ -88,4 +88,3 @@ async fn healthcheck() -> impl IntoResponse{
         "message": "Up and running"
     }))
 }
-

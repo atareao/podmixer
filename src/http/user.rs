@@ -71,7 +71,7 @@ pub async fn get_token(
     };
 
     let secret = Param::get_secret(&app_state.pool).await;
-    Ok(encode(
+    encode(
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
@@ -81,7 +81,7 @@ pub async fn get_token(
             "message": format!("Encoding JWT error: {}. Please <a href='/login'>log in</a>", e),
         });
         (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    })?)
+    })
 }
 
 pub async fn do_login(

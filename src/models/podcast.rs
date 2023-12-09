@@ -3,11 +3,13 @@ use sqlx::{sqlite::{SqlitePool, SqliteRow}, query, Row};
 use rss::{Channel, Item};
 use super::Error;
 use chrono::{NaiveDateTime, DateTime, Utc, Duration};
+use tracing::debug;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FormPodcast{
     pub name: String,
     pub url: String,
+    pub active: bool,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Podcast{
@@ -39,7 +41,7 @@ impl Podcast{
         }
     }
     pub async fn get(pool: &SqlitePool) -> Result<Vec<Podcast>, sqlx::error::Error>{
-        let sql = "SELECT * FROM podcasts";
+        let sql = "SELECT * FROM podcasts ORDER BY last_pub_date DESC";
         query(sql)
             .map(Self::from_row)
             .fetch_all(pool)
@@ -61,6 +63,26 @@ impl Podcast{
             .await
     }
 
+    pub async fn create_or_update(pool: &SqlitePool, name: &str, url: &str, active: bool) -> Result<Podcast, sqlx::error::Error>{
+        let current_ts = Utc::now();
+        let sql = "INSERT INTO podcasts (name, url, active, updated_at) 
+            VALUES ($1, $2, $3, $4)
+            ON CONFLICT(name) DO UPDATE SET
+            url=excluded.url,
+            active=excluded.active,
+            updated_at=excluded.updated_at
+            RETURNING *";
+        query(sql)
+            .bind(name)
+            .bind(url)
+            .bind(active)
+            .bind(current_ts)
+            .map(Self::from_row)
+            .fetch_one(pool)
+            .await
+    }
+
+    #[allow(dead_code)]
     pub async fn create(pool: &SqlitePool, name: &str, url: &str) -> Result<Podcast, sqlx::error::Error>{
         let sql = "INSERT INTO podcasts (name, url) VALUES ($1, $2) RETURNING *";
         query(sql)
@@ -84,8 +106,10 @@ impl Podcast{
 
 impl CompletePodcast {
     pub async fn new(podcast: &Podcast) -> Result<Self, Error>{
-        let client = reqwest::Client::new();
-        let content = client
+        debug!("Url: {}", &podcast.url);
+        let content = reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36")
+            .build()?
             .get(&podcast.url)
             .send()
             .await?
@@ -107,12 +131,12 @@ impl CompletePodcast {
     }
 
     pub fn get_new(&self) -> Result<Vec<Item>, Error>{
-        Ok(self.get_older_than(&self.podcast.last_pub_date)?)
+        self.get_older_than(&self.podcast.last_pub_date)
     }
 
     pub fn get_older_than_days(&self, days: i32) -> Result<Vec<Item>, Error>{
         let datetime = (Utc::now() - Duration::days(days.into())).naive_local();
-        Ok(self.get_older_than(&datetime)?)
+        self.get_older_than(&datetime)
     }
 
     pub fn get_older_than(&self, datetime: &NaiveDateTime) -> Result<Vec<Item>, Error>{

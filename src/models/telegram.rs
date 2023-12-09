@@ -1,7 +1,8 @@
 use reqwest::Client;
-use serde_json::json;
+use serde_json::{json, Value};
 use serde::{Serialize, Deserialize};
-use tracing::{debug, error};
+use tracing::debug;
+use super::Error;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Telegram{
@@ -16,7 +17,7 @@ fn default_thread_id() -> i64{
     0
 }
 
-const URL: &'static str = "https://api.telegram.org";
+const URL: &str = "https://api.telegram.org";
 
 impl Telegram{
     pub fn new(active: bool, token: String, chat_id: i64, thread_id: i64) -> Self{
@@ -32,7 +33,8 @@ impl Telegram{
         self.active
     }
 
-    pub async fn send_message(&self, message: &str){
+    #[allow(dead_code)]
+    pub async fn send_message(&self, message: &str) -> Result<String, Error>{
         let url = format!("{URL}/bot{}/sendMessage", self.token);
         let message = json!({
             "chat_id": self.chat_id,
@@ -40,28 +42,10 @@ impl Telegram{
             "text": message,
             "parse_mode": "HTML",
         });
-        match Client::new()
-            .post(url)
-            .json(&message)
-            .send()
-            .await{
-                Ok(data) => {
-                    match data.error_for_status(){
-                        Ok(response) => {
-                            match response.text().await {
-                                Ok(text) => debug!("{:?}", text),
-                                Err(e) => error!("{:?}", e),
-                            }
-
-                        },
-                        Err(e) => error!("{:?}", e),
-                    }
-                },
-                Err(e) => error!("{:?}", e),
-            };
+        self._post(&url, &message).await
     }
 
-    pub async fn send_audio(&self, audio: &str, caption: &str) {
+    pub async fn send_audio(&self, audio: &str, caption: &str) -> Result<String, Error>{
         debug!("send_audio");
         let url = format!("{URL}/bot{}/sendAudio", self.token);
         debug!("url: {url}");
@@ -73,24 +57,17 @@ impl Telegram{
             "parse_mode": "HTML",
         });
         debug!("message: {:?}", message);
-        match Client::new()
+        self._post(&url, &message).await
+    }
+    async fn _post(&self, url: &str, body: &Value) -> Result<String, Error>{
+        debug!("_post");
+        Client::new()
             .post(url)
-            .json(&message)
+            .json(&body)
             .send()
-            .await{
-                Ok(data) => {
-                    match data.error_for_status(){
-                        Ok(response) => {
-                            match response.text().await {
-                                Ok(text) => debug!("{:?}", text),
-                                Err(e) => error!("{:?}", e),
-                            }
-
-                        },
-                        Err(e) => error!("{:?}", e),
-                    }
-                },
-                Err(e) => error!("{:?}", e),
-            };
+            .await?
+            .error_for_status()?
+            .text()
+            .await.map_err(|e| e.into())
     }
 }

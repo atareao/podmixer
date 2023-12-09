@@ -22,7 +22,10 @@ pub struct Feed{
 }
 
 impl Feed {
-    pub fn new(title: String, link: String, image_url: String, category: String, rating: String, description: String, author: String, explicit: String, keywords: String) -> Self{
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(title: String, link: String, image_url: String,
+               category: String, rating: String, description: String,
+               author: String, explicit: String, keywords: String) -> Self{
         Self{
             title,
             link,

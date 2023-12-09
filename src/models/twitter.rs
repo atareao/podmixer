@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use tracing::debug;
 use super::Error;
 
-const X_URL: &'static str = "https://api.twitter.com";
+const X_URL: &str = "https://api.twitter.com";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Twitter{

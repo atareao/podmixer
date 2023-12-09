@@ -22,6 +22,7 @@ pub struct Param{
 
 
 impl Param{
+    #[allow(dead_code)]
     pub fn get_id(&self) -> i64{
         self.id
     }
@@ -92,8 +93,9 @@ impl Param{
         let feed_author = Self::get(pool, "feed_author").await?;
         let feed_explicit = Self::get(pool, "feed_explicit").await?;
         let feed_keywords = Self::get(pool, "feed_keywords").await?;
-        Ok(Feed::new(feed_title, feed_link, feed_image_url, feed_category, feed_rating, feed_description, feed_author, feed_explicit, feed_keywords
-        ))
+        Ok(Feed::new(feed_title, feed_link, feed_image_url, feed_category,
+            feed_rating, feed_description, feed_author, feed_explicit,
+            feed_keywords))
     }
 
     pub async fn get_twitter(pool: &SqlitePool) -> Result<Twitter, Error> {
@@ -105,7 +107,8 @@ impl Param{
         let client_secret = Self::get(pool, "twitter_client_secret").await?;
         let access_token = Self::get(pool, "twitter_access_token").await?;
         let refresh_token = Self::get(pool, "twitter_refresh_token").await?;
-        Ok(Twitter::new(active, client_id, client_secret, access_token, refresh_token))
+        Ok(Twitter::new(active, client_id, client_secret, access_token,
+            refresh_token))
     }
 
     pub fn get_value(&self) -> &str{

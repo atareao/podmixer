@@ -13,7 +13,13 @@
 <div class="is-center">
     <h1>{{title}}</h1>
 </div>
-<a id="logout" href="/logout" role="button">
+<a id="podcasts" href="/" role="button" data-tooltip="List of podcasts">
+    <i class="fa-solid fa-microphone"></i>
+</a>
+<button id="force-rss-generation" role="button" data-tooltip="Force RSS generation">
+    <i class="fa-solid fa-rss"></i>
+</button>
+<a id="logout" href="/logout" role="button" data-tooltip="Logout">
     <i class="fa-solid fa-right-from-bracket"></i>
 </a>
 <article>
@@ -33,9 +39,9 @@
     <label for="jwt_maxage">jwt max age</label>
     <input type="number" name="jwt_maxage" placeholder="jwt max age" value="{{jwt_maxage}}"></input>
 
-    <a href="#general" role="button" class="save-button">
+    <button role="button" class="save-button" data-tooltip="Save general configuration">
         <i class="fa-solid fa-floppy-disk"></i>
-    </a>
+    </button>
 </article>
 
 <article>
@@ -59,9 +65,9 @@
     <label for="feed_keywords">Keyworkds</label>
     <input type="text" name="feed_keywords" placeholder="Keywords" value="{{feed_keywords}}"></input>
 
-    <a href="#feed" role="button" class="save-button">
+    <button href="#feed" role="button" class="save-button" data-tooltip="Save general feed configuration">
         <i class="fa-solid fa-floppy-disk"></i>
-    </a>
+    </button>
 </article>
 <article>
     <h3 id="telegram">Telegram</h3>
@@ -75,9 +81,9 @@
     <label for="telegram_template">Template</label>
     <textarea name="telegram_template" placeholder="template">{{telegram_template}}</textarea>
 
-    <a href="#telegram" role="button" class="save-button">
+    <button href="#telegram" role="button" class="save-button" data-tooltip="Save Telegram configuration">
         <i class="fa-solid fa-floppy-disk"></i>
-    </a>
+    </button>
 </article>
 <article>
     <h3 id="twitter">Twitter</h3>
@@ -93,9 +99,9 @@
     <label for="twitter_template">Template</label>
     <textarea name="twitter_template" placeholder="template">{{twitter_template}}</textarea>
 
-    <a href="#twitter" role="button" class="save-button">
+    <button href="#twitter" role="button" class="save-button" data-tooltip="Save Twitter configuration">
         <i class="fa-solid fa-floppy-disk"></i>
-    </a>
+    </button>
 </article>
 {% endblock main %}
 {% block scripts %}

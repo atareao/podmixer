@@ -13,33 +13,39 @@
 <div class="is-center">
     <h1>{{title}}</h1>
 </div>
-<a href="#" role="button" data-name="" data-url="" data-role="add" data-target="dialog-podcast" class="open-dialog-podcast">
+<button role="button" data-role="add" data-target="dialog-podcast" class="open-dialog-podcast" data-tooltip="Add new podcast">
     <i class="fa-solid fa-plus"></i>
+</button>
+<a id="config" href="/config" role="button" data-tooltip="Configuration">
+    <i class="fa-solid fa-gear"></i>
 </a>
-<a id="logout" href="/logout" role="button">
+<a id="logout" href="/logout" role="button" data-tooltip="Logout">
     <i class="fa-solid fa-right-from-bracket"></i>
 </a>
-<table id="podcasts">
-    <tbody>
-        {% for podcast in podcasts %}
-        <tr id="{{podcast.id}}">
-            <td>{{podcast.name}}</td>
-            <td>{{podcast.url}}</td>
-            <td>{{podcast.last_pub_date}}</td>
-            <td>
-                <a href="#" role="button" data-name="{{podcast.name}}" data-url="{{podcast.url}}" data-target="dialog-podcast" data-role="edit" class="open-dialog-podcast">
-                    <i class="fa-solid fa-pen"></i>
-                </a>
-            </td>
-            <td>
-                <a href="#" role="button" data-id="{{podcast.id}}" class="delete-podcast">
-                    <i class="fa-solid fa-trash"></i>
-                </a>
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div style="overflow-x:auto;">
+    <table id="podcasts">
+        <tbody>
+            {% for podcast in podcasts %}
+            <tr id="{{podcast.id}}">
+                <td><i class="fa-regular fa-square{% if podcast.active == 1 %}-check{% endif %}"></i></td>
+                <td>{{podcast.name}}</td>
+                <td>{{podcast.url}}</td>
+                <td>{{podcast.last_pub_date}}</td>
+                <td>
+                    <button role="button" data-active="{{podcast.active}}" data-name="{{podcast.name}}" data-url="{{podcast.url}}" data-target="dialog-podcast" data-role="edit" class="open-dialog-podcast" data-tooltip="Edit podcast">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                </td>
+                <td>
+                    <button role="button" data-id="{{podcast.id}}" class="delete-podcast" data-tooltip="Delete podcast">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
     <!-- Dialog Podcast -->
     <dialog id="dialog-podcast">
@@ -51,14 +57,11 @@
           class="close"
         ></a>
         <h3>Edit podcast</h3>
-        <label for="name">
-            name
-            <input type="text" id="dialog-podcast-name" name="name" placeholder="Podcast name" required>
-        </label>
-        <label for="url">
-            url
-            <input type="text" id="dialog-podcast-url" name="url" placeholder="Podcast url" required>
-        </label>
+        <input type="checkbox" id="dialog-podcast-active" name="active" role="switch"></input><br/><br/>
+        <label for="dialog-podcast-name">name</label>
+        <input type="text" id="dialog-podcast-name" name="name" placeholder="Podcast name" required></input>
+        <label for="dialog-podcast-url">url</label>
+        <input type="url" id="dialog-podcast-url" name="url" placeholder="Podcast url" required></input>
         <footer>
           <a
             id="dialog-podcast-cancel"
@@ -66,7 +69,8 @@
             role="button"
             class="secondary"
             >Cancel</a
-          ><a
+          >
+          <a
             id="dialog-podcast-confirm"
             href="#confirm"
             role="button"

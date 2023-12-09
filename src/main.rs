@@ -1,5 +1,3 @@
-use tokio;
-use futures;
 use sqlx::{
     sqlite::{
         SqlitePoolOptions,
@@ -102,15 +100,15 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
     let mut generate = false;
     for podcast in podcasts.as_mut_slice(){
         debug!("Get episodes for {}", &podcast.name);
-        match CompletePodcast::new(&podcast).await{
+        match CompletePodcast::new(podcast).await{
             Ok(complete) => {
                 match complete.get_new(){
                     Ok(news) => {
                         debug!("Podcast: {}. News: {}", &podcast.name, news.len());
                         new_episodes.extend_from_slice(news.as_slice());
-                        if news.len() > 0{
+                        if !news.is_empty(){
                             generate = true;
-                            let first = news.first().clone();
+                            let first = news.first();
                             debug!("{}", first.unwrap().pub_date().unwrap());
                             let pub_date = DateTime::parse_from_rfc2822(first.unwrap().pub_date().unwrap())
                                 .unwrap()
@@ -164,6 +162,13 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
         }
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice(){
+            let ctx = context!(
+                title => episode.title().unwrap(),
+                description => from_read(
+                    episode.description().unwrap().as_bytes(),
+                    5000),
+                link => episode.link().unwrap(),
+            );
             if telegram.is_active(){
                 let template = Param::get(pool, "telegram_template")
                     .await
@@ -172,16 +177,12 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                 env.add_filter("truncate", truncate);
                 env.add_template("telegram", &template).unwrap();
                 let tmpl = env.get_template("telegram").unwrap();
-                let ctx = context!(
-                    title => episode.title().unwrap(),
-                    description => from_read(
-                        episode.description().unwrap().as_bytes(),
-                        5000),
-                    link => episode.link().unwrap(),
-                );
                 let audio = &episode.enclosure().unwrap().url();
-                let message = tmpl.render(ctx).unwrap();
-                telegram.send_audio(&audio, &message).await;
+                let message = tmpl.render(&ctx).unwrap();
+                match telegram.send_audio(audio, &message).await{
+                    Ok(response) => debug!("Telegram: {response}"),
+                    Err(e) => error!("Telegram: {e}")
+                }
             }
             if twitter.is_active(){
                 let template = Param::get(pool, "twitter_template")
@@ -191,26 +192,22 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                 env.add_template("twitter", &template).unwrap();
                 env.add_filter("truncate", truncate);
                 let tmpl = env.get_template("twitter").unwrap();
-                let ctx = context!(
-                    title => episode.title().unwrap(),
-                    description => from_read(
-                        episode.description().unwrap().as_bytes(),
-                        5000),
-                    link => episode.link().unwrap(),
-                );
-                let message = tmpl.render(ctx).unwrap();
+                let message = tmpl.render(&ctx).unwrap();
                 match twitter.post(&message).await{
                     Ok(response) => debug!("{:?}", response),
-                    Err(e) => error!("{:?}", e),
+                    Err(e) => error!("Twitter: {e}"),
                 }
             }
             tokio::time::sleep(time::Duration::from_secs(1)).await;
         }
+        // Sort episodes
+        all_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
+        older_than_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         //Make short feed
         match feed.rss(older_than_episodes){
             Ok(short_feed) => {
                 //debug!("{}", &short_feed);
-                match std::fs::write("rss/long.xml", &short_feed.as_bytes()){
+                match std::fs::write("rss/short.xml", short_feed.as_bytes()){
                     Ok(response) => debug!("{:?}", response),
                     Err(e) => error!("{:?}", e),
                 };
@@ -221,7 +218,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
         match feed.rss(all_episodes){
             Ok(long_feed) => {
                 //debug!("{}", &long_feed);
-                match std::fs::write("rss/long.xml", &long_feed.as_bytes()){
+                match std::fs::write("rss/long.xml", long_feed.as_bytes()){
                     Ok(response) => debug!("{:?}", response),
                     Err(e) => error!("{:?}", e),
                 };

@@ -6,35 +6,19 @@ const animationDuration = 400; // ms
 let visibleModal = null;
 
 var ready = (callback) => {
-    if (document.readyState != "loading") callback();
-    else document.addEventListener("DOMContentLoaded", callback);
+    if (document.readyState != "loading"){
+        callback();
+    }else{
+        document.addEventListener("DOMContentLoaded", callback);
+    }
 };
 
 ready(() => {
     /* Do things after DOM has fully loaded */
-    let podcastDialog;
-    const modalEditPodcast = document.getElementById("dialog-podcast");
-    if (modalEditPodcast != null) {
-        podcastDialog = new PodcastDialog(modalEditPodcast);
-    }
-    const logout = null; //document.getElementById("logout");
-    if (logout != null) {
-        logout.addEventListener("click", handleLogoutClick);
-    }
-    const editElements = document.getElementsByClassName("open-dialog-podcast");
-    if (editElements != null) {
-        Array.from(editElements).forEach((element) => {
-            element.addEventListener("click", (event) => {
-                event.preventDefault();
-                console.log("Edit podcast");
-                Array.from(element.getAttributeNames()).forEach((key) => {
-                    const value = element.getAttribute(key);
-                    console.log(`${key} => ${value}`);
-                });
-                podcastDialog.open(element);
-            });
-        });
-    }
+    setEditElements();
+    setDeleteElements();
+});
+function setDeleteElements(){
     const deleteElements = document.getElementsByClassName("delete-podcast");
     if (deleteElements != null) {
         Array.from(deleteElements).forEach((element) => {
@@ -60,7 +44,28 @@ ready(() => {
             });
         });
     }
-});
+}
+function setEditElements(){
+    let podcastDialog;
+    const modalEditPodcast = document.getElementById("dialog-podcast");
+    if (modalEditPodcast != null) {
+        podcastDialog = new PodcastDialog(modalEditPodcast);
+    }
+    const editElements = document.getElementsByClassName("open-dialog-podcast");
+    if (editElements != null) {
+        Array.from(editElements).forEach((element) => {
+            element.addEventListener("click", (event) => {
+                event.preventDefault();
+                console.log("Edit podcast");
+                Array.from(element.getAttributeNames()).forEach((key) => {
+                    const value = element.getAttribute(key);
+                    console.log(`${key} => ${value}`);
+                });
+                podcastDialog.open(element);
+            });
+        });
+    }
+}
 
 class PodcastDialog {
     constructor(dialog) {
@@ -83,6 +88,7 @@ class PodcastDialog {
             .addEventListener("click", (event) => {
                 this.close("confirm");
             });
+        this.active = document.getElementById("dialog-podcast-active");
         this.name = document.getElementById("dialog-podcast-name");
         this.url = document.getElementById("dialog-podcast-url");
     }
@@ -94,13 +100,11 @@ class PodcastDialog {
     }
     open(element) {
         this.element = element;
+        this.active.checked = ((element.getAttribute("data-active")==="true")?true:false);
         this.name.value = element.getAttribute("data-name");
         this.url.value = element.getAttribute("data-url");
         this.role = element.getAttribute("data-role");
-        if (this.role == "edit") {
-            this.name.readOnly = true;
-        }
-        const ch = element.parentNode.parentNode.children;
+        this.name.readOnly = (this.role == "edit");
         if (this.isScrollbarVisible()) {
             document.documentElement.style.setProperty(
                 "--scrollbar-width",
@@ -118,9 +122,32 @@ class PodcastDialog {
     close(status) {
         if (status == "confirm") {
             if (this.role == "edit") {
-                const items = this.element.parentNode.parentNode.children;
-                items[0].innerHTML = this.name.value;
-                items[1].innerHTML = this.url.value;
+                fetch("/podcasts", {
+                    method: "POST",
+                    cache: "no-cache",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        active:this.active.checked, 
+                        name: this.name.value,
+                        url: this.url.value,
+                    }),
+                })
+                    .then((response) => response.json())
+                    .then((json) => {
+                        if (json.result == "ko") {
+                            return;
+                        }
+                        const items = this.element.parentNode.parentNode.children;
+                        const checked = ((this.active.checked)?"fa-square-check":"fa-square");
+                        items[0].innerHTML = `<i class="fa-regular ${checked}"></i>`;
+                        items[1].innerHTML = this.name.value;
+                        items[2].innerHTML = this.url.value;
+                        console.log(items);
+                    })
+                    .catch((err) => console.log("Error", err));
             } else if (this.role == "add") {
                 fetch("/podcasts", {
                     method: "POST",
@@ -130,6 +157,7 @@ class PodcastDialog {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
+                        active:this.active.checked, 
                         name: this.name.value,
                         url: this.url.value,
                     }),
@@ -142,20 +170,30 @@ class PodcastDialog {
                         const data = json.content;
                         const table = document.getElementById("podcasts");
                         const tbody = table.children[0];
-                        tbody.innerHTML += `
-                        <tr>
+                        const checked = ((data.active)?"fa-square-check":"fa-square");
+                        console.log(data);
+                        const inner = tbody.innerHTML;
+                        tbody.innerHTML = `
+                        <tr id="${data.id}">
+                            <td><i class="fa-regular fa-square ${checked}"></i></td>
                             <td>${data.name}</td>
                             <td>${data.url}</td>
                             <td>${data.last_pub_date}</td>
                             <td>
-                                <a href="#" role="button" data-name="${this.name.value}" data-url="${this.name.url}" data-target="dialog-podcast" data-role="edit" class="open-dialog-podcast">
+                                <button role="button" data-active="${data.active} "data-name="${data.name}" data-url="${data.url}" data-target="dialog-podcast" data-role="edit" class="open-dialog-podcast" data-tooltip="Edit podcast">
                                     <i class="fa-solid fa-pen"></i>
-                                </a>
+                                </button>
                             </td>
-                            <td><a href="#" role="button" class="delete-podcast"><i class="fa-solid fa-trash"></i></a></td>
+                            <td>
+                                <button role="button" data-id="${data.id}" class="delete-podcast" data-tooltip="Delete podcast">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </td>
                         </tr>
-                        `;
+                        ` + inner;
                         console.log(table);
+                        setDeleteElements();
+                        setEditElements();
                     })
                     .catch((err) => console.log("Error", err));
             }

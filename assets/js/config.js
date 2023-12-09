@@ -4,49 +4,68 @@ var ready = (callback) => {
 };
 
 ready(() => {
+    const generateRSSButton = document.getElementById("force-rss-generation");
+    if (generateRSSButton != null){
+        generateRSSButton.addEventListener("click", (event) => {
+            console.log(event);
+            fetch("/force_rss_generation", {
+                method: "GET",
+                cache: "no-cache",
+                credentials: "same-origin",
+            })
+            .then((response) => response.json())
+            .then((json) => {
+                if (json.result == "ok") {
+                    console.log(json);
+                }
+            })
+            .catch((err) => console.log("Error", err));
+
+        });
+    }
     const saveButtons = document.getElementsByClassName("save-button");
     if (saveButtons != null) {
         Array.from(saveButtons).forEach((saveButton) => {
-            saveButton.addEventListener("click", (event) => {
-                console.log(event);
-                const article = saveButton.parentNode;
-                const data = [];
-                Array.from(article.children).forEach((element) => {
-                    if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
-                        data.push({
-                            key: element.name,
-                            value:
-                                element.type === "checkbox"
-                                    ? element.checked
-                                        ? "TRUE"
-                                        : "FALSE"
-                                    : element.value,
-                        });
-                    }
+        saveButton.addEventListener("click", (event) => {
+        console.log(event);
+        const article = saveButton.parentNode;
+        const data = [];
+        Array.from(article.children).forEach((element) => {
+            if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
+                data.push({
+                    key: element.name,
+                    value:
+                        element.type === "checkbox"
+                            ? element.checked
+                                ? "TRUE"
+                                : "FALSE"
+                            : element.value,
                 });
-                if (data.length > 0) {
-                    console.log(data);
-                    fetch("/config", {
-                        method: "POST",
-                        cache: "no-cache",
-                        credentials: "same-origin",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify(data),
-                    })
-                        .then((response) => response.json())
-                        .then((json) => {
-                            if (json.result == "ok") {
-                                console.log(json);
-                                updateInputs(element.children, json.content);
-                            }
-                        })
-                        .catch((err) => console.log("Error", err));
-                }
-            });
+            }
         });
+        if (data.length > 0) {
+            console.log(data);
+            fetch("/config", {
+                method: "POST",
+                cache: "no-cache",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(data),
+        })
+            .then((response) => response.json())
+            .then((json) => {
+                if (json.result == "ok") {
+                    console.log(json);
+                    updateInputs(element.children, json.content);
+                }
+            })
+            .catch((err) => console.log("Error", err));
     }
+});
+});
+}
 });
 
 function updateInputs(children, data) {

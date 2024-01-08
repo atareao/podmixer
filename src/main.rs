@@ -24,8 +24,9 @@ use models::{
     Param,
     Podcast,
     CompletePodcast,
+    Error,
 };
-use chrono::DateTime;
+use chrono::{DateTime, NaiveDateTime};
 use rss::Item;
 use minijinja::{Environment, context};
 use html2text::from_read;
@@ -78,7 +79,17 @@ async fn main(){
     let pool2 = pool.clone();
     tokio::spawn(async move {
         loop {
-            do_the_work(&pool2, older_than).await;
+            match do_the_work(&pool2, older_than).await{
+                Ok(_) => {},
+                Err(error) => {
+                    error!("do_the_work error: {error}");
+                    let mut next_err = error.source();
+                    while next_err.is_some(){
+                        error!("caused by: {:#}", next_err.unwrap());
+                        next_err = next_err.unwrap().source();
+                    }
+                },
+            }
             tokio::time::sleep(
                 time::Duration::from_secs(sleep_time)
             ).await;
@@ -90,13 +101,13 @@ async fn main(){
         .unwrap();
 }
 
-async fn do_the_work(pool: &SqlitePool, older_than: i32) {
+async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
     debug!("Init feed");
-    let feed = Param::get_feed(pool).await.unwrap();
+    let feed = Param::get_feed(pool).await?;
     let mut new_episodes: Vec<Item> = Vec::new();
     let mut older_than_episodes: Vec<Item> = Vec::new();
     let mut all_episodes: Vec<Item> = Vec::new();
-    let mut podcasts = Podcast::get(pool).await.unwrap();
+    let mut podcasts = Podcast::get(pool).await?;
     let mut generate = false;
     for podcast in podcasts.as_mut_slice(){
         debug!("Get episodes for {}", &podcast.name);
@@ -108,12 +119,13 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                         new_episodes.extend_from_slice(news.as_slice());
                         if !news.is_empty(){
                             generate = true;
-                            let first = news.first();
-                            debug!("{}", first.unwrap().pub_date().unwrap());
-                            let pub_date = DateTime::parse_from_rfc2822(first.unwrap().pub_date().unwrap())
-                                .unwrap()
-                                .naive_local();
-                            podcast.last_pub_date = pub_date;
+                            let first = news.first().unwrap();
+                            debug!("{}", first.pub_date().unwrap());
+                            if let Ok(pub_date) = DateTime::parse_from_rfc2822(first.pub_date().unwrap()){
+                                podcast.last_pub_date = pub_date.naive_local();
+                            }else if let Ok(pub_date) = NaiveDateTime::parse_from_str(first.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S") {
+                                podcast.last_pub_date = pub_date;
+                            }
                             match futures::executor::block_on(Podcast::update(pool, podcast)){
                                 Ok(response) => debug!("{:?}", response),
                                 Err(e) => error!("{:?}", e),
@@ -134,9 +146,9 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
     }
     if generate {
         debug!("Init telegram");
-        let telegram = Param::get_telegram(pool).await.unwrap();
+        let telegram = Param::get_telegram(pool).await?;
         debug!("Init twitter");
-        let mut twitter = Param::get_twitter(pool).await.unwrap();
+        let mut twitter = Param::get_twitter(pool).await?;
         if twitter.is_active(){
             debug!("What before access_token: {}", twitter.get_access_token());
             debug!("What before refresh_token: {}", twitter.get_refresh_token());
@@ -179,9 +191,35 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                 let tmpl = env.get_template("telegram").unwrap();
                 let audio = &episode.enclosure().unwrap().url();
                 let message = tmpl.render(&ctx).unwrap();
+                let mut telegram_cannot_send_audio = true;
                 match telegram.send_audio(audio, &message).await{
-                    Ok(response) => debug!("Telegram: {response}"),
-                    Err(e) => error!("Telegram: {e}")
+                    Ok(response) => {
+                        telegram_cannot_send_audio = false;
+                        debug!("Telegram: {response}");
+                    },
+                    Err(error) => {
+                        error!("Could populate in Telegram: {error}");
+                        let mut next_error = error.source();
+                        // render causes as well
+                        while next_error.is_some(){
+                            error!("caused by: {:#}", next_error.unwrap());
+                            next_error = next_error.unwrap().source();
+                        }
+                    },
+                }
+                if telegram_cannot_send_audio{
+                    match telegram.send_message(&message).await{
+                        Ok(response) => debug!("Telegram: {response}"),
+                        Err(error) => {
+                            error!("Could populate in Telegram: {error}");
+                            let mut next_error = error.source();
+                            // render causes as well
+                            while next_error.is_some(){
+                                error!("caused by: {:#}", next_error.unwrap());
+                                next_error = next_error.unwrap().source();
+                            }
+                        },
+                    }
                 }
             }
             if twitter.is_active(){
@@ -195,7 +233,15 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
                 let message = tmpl.render(&ctx).unwrap();
                 match twitter.post(&message).await{
                     Ok(response) => debug!("{:?}", response),
-                    Err(e) => error!("Twitter: {e}"),
+                    Err(error) => {
+                        error!("Could populate in Twitter: {error}");
+                        let mut next_error = error.source();
+                        // render causes as well
+                        while next_error.is_some(){
+                            error!("caused by: {:#}", next_error.unwrap());
+                            next_error = next_error.unwrap().source();
+                        }
+                    },
                 }
             }
             tokio::time::sleep(time::Duration::from_secs(1)).await;
@@ -226,6 +272,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) {
             Err(e) => error!("{:?}", e),
         };
     }
+    Ok(())
 }
 
 fn truncate(value: String, length: usize) -> String {

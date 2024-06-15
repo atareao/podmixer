@@ -51,13 +51,13 @@ impl Telegram{
             .await.map_err(|e| e.into())
     }
 
-    pub async fn send_audio(&self, filepath: &str, caption: &str) -> Result<String, Error>{
+    pub async fn send_audio(&self, filename: &str, filepath: &str, caption: &str) -> Result<String, Error>{
         debug!("send_audio");
         let url = format!("{URL}/bot{}/sendAudio", self.token);
         debug!("url: {url}");
         let file = tokio::fs::read(filepath).await?;
         let part = multipart::Part::bytes(file)
-            .file_name("test.mp3");
+            .file_name(filename.to_string());
         let form = multipart::Form::new()
             .text("chat_id", self.chat_id.to_string())
             .text("message_thread_id", self.thread_id.to_string())
@@ -103,10 +103,11 @@ mod test{
             .expect("Cant get thread_id")
             .parse()
             .expect("Cant convert thread_id");
+        let filename = "example.mp3";
         let audio = "/data/rust/podmixer/5d279930-4426-d35f-7c3b-90314d30595d.mp3";
         let telegram = Telegram::new(true, token, chat_id, thread_id);
         assert!(telegram.send_message("Prueba").await.is_ok());
-        let response = telegram.send_audio(audio, "Esto es una prueba").await;
+        let response = telegram.send_audio(filename, audio, "Esto es una prueba").await;
         println!("{:?}", response);
         assert!(response.is_ok());
     }

@@ -267,10 +267,11 @@ async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, 
     let url = episode.enclosure().unwrap().url();
     let name = util::normalize(&episode.title().unwrap())?;
     let ext = util::get_extension_from_filename(url).unwrap();
-    let filepath = format!("/tmp/{name}.{ext}");
+    let filename = format!("{name}.{ext}");
+    let filepath = format!("/tmp/{filename}");
     util::fetch_url(url, &filepath).await?;
     let message = tmpl.render(ctx)?;
-    telegram.send_audio(&filepath, &message).await?;
+    telegram.send_audio(&filename, &filepath, &message).await?;
     tokio::fs::remove_file(filepath).await?;
     Ok(())
 }

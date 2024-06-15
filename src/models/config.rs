@@ -115,14 +115,6 @@ impl Param{
         &self.value
     }
 
-    pub fn get_created_at(&self) -> &DateTime<Utc>{
-        &self.created_at
-    }
-
-    pub fn get_updated_at(&self) -> &DateTime<Utc>{
-        &self.updated_at
-    }
-
     fn from_row(row: SqliteRow) -> Self{
         Self{
             id: row.get("id"),
@@ -160,6 +152,7 @@ impl Param{
     }
 
 
+    #[allow(unused)]
     pub async fn exists(pool: &SqlitePool, key: &str) -> Result<bool, Error>{
         debug!("exists {key}");
         let sql = "SELECT count(key) FROM config WHERE key = $1";

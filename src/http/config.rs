@@ -49,7 +49,7 @@ pub async fn get_config(
     let template = ENV.get_template("config.html").unwrap();
     let ctx = context!{
         title => "PodMixer",
-        ..Value::from_serializable(&params),
+        ..Value::from_serialize(&params),
     };
     //let ctx = context! {
     //    title => "PodMixer",

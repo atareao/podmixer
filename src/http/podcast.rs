@@ -7,6 +7,7 @@ use axum::{
         State,
         Query,
     },
+    http::StatusCode,
     Router,
     routing,
     response::IntoResponse,
@@ -76,15 +77,14 @@ async fn create_or_update(
 ) -> impl IntoResponse{
     Podcast::create_or_update(&app_state.pool, &podcast.name, &podcast.url, podcast.active)
         .await
-        .map(|podcasts| Json(json!({
+        .map(|podcasts| (StatusCode::OK, Json(json!({
             "result": "ok",
             "content": podcasts
-        })))
-        .map_err(|e| Json(json!({
+        }))))
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({
             "result": "ko",
             "content": e.to_string(),
-
-        })))
+        }))))
 }
 async fn delete(
     State(app_state): State<Arc<AppState>>,

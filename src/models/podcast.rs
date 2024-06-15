@@ -145,11 +145,11 @@ impl CompletePodcast {
         for item in self.channel.items.as_slice(){
             if let Some(pub_date_str) = item.pub_date(){
                 if let Ok(pub_date) = DateTime::parse_from_rfc2822(pub_date_str){
-                    if pub_date.timestamp() > datetime.timestamp(){
+                    if pub_date.timestamp() > datetime.and_utc().timestamp(){
                         older_than.push(item.clone());
                     }
                 }else if let Ok(pub_date) = NaiveDateTime::parse_from_str(pub_date_str, "%a, %d %b %Y %H:%M:%S") {
-                    if pub_date.timestamp() > datetime.timestamp(){
+                    if pub_date.and_utc().timestamp() > datetime.and_utc().timestamp(){
                         older_than.push(item.clone());
                     }
                 }

@@ -91,19 +91,19 @@ pub async fn do_login(
     tracing::info!("Post data: {:?}", user_data);
     match get_token(&app_state, user_data).await {
         Ok(token) => {
-            let cookie = Cookie::build("token", token.to_owned())
+            let cookie = Cookie::build(("token", token.to_owned()))
                 .path("/")
                 .max_age(cookie::time::Duration::hours(1))
                 .same_site(SameSite::Lax)
                 .http_only(true)
-                .finish();
+                .build();
             tracing::info!("El token: {}", token.to_string());
             
             Ok(Response::builder()
                 .status(StatusCode::SEE_OTHER)
                 .header(header::LOCATION, "/")
                 .header(header::SET_COOKIE, cookie.to_string())
-                .body(body::Empty::new())
+                .body(body::Body::empty())
                 .unwrap())
         },
         Err(e) => {
@@ -120,12 +120,12 @@ pub async fn do_login(
 }
 
 pub async fn logout() -> impl IntoResponse {
-    let cookie = Cookie::build("token", "")
+    let cookie = Cookie::build(("token", ""))
         .path("/")
         .max_age(cookie::time::Duration::hours(-1))
         .same_site(SameSite::Lax)
         .http_only(true)
-        .finish();
+        .build();
 
     tracing::info!("The cookie: {}", cookie.to_string());
 
@@ -133,7 +133,7 @@ pub async fn logout() -> impl IntoResponse {
         .status(StatusCode::SEE_OTHER)
         .header(header::LOCATION, "/")
         .header(header::SET_COOKIE, cookie.to_string())
-        .body(body::Empty::new())
+        .body(body::Body::empty())
         .unwrap()
 }
 

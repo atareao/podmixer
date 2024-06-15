@@ -5,7 +5,7 @@ pub mod estatic;
 pub mod root;
 pub mod podcast;
 
-use std::{sync::Arc, net::{SocketAddr, Ipv4Addr}};
+use std::sync::Arc;
 use sqlx::sqlite::SqlitePool;
 use axum::{
     Router,
@@ -62,12 +62,11 @@ pub async fn serve(pool: &SqlitePool) -> Result<(), Error>{
             .layer(TraceLayer::new_for_http())
             .layer(cors);
 
-    axum::Server::bind(
-        &SocketAddr::new(std::net::IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)), port))
-        .serve(app.into_make_service())
-        .await
-        .map_err(|e| e.try_into().unwrap())
-
+    let address = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(address)
+        .await?;
+    Ok(axum::serve(listener, app)
+        .await?)
 }
 
 

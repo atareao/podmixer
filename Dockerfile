@@ -41,7 +41,7 @@ ENV USER=app \
     UID=1000
 
 RUN apk add --update --no-cache \
-            tzdata~=2023c \
+            tzdata~=2024 \
             sqlite~=3.44 && \
     rm -rf /var/cache/apk && \
     rm -rf /var/lib/app/lists && \

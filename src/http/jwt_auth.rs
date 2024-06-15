@@ -30,8 +30,9 @@ pub async fn auth<B>(
     cookie_jar: CookieJar,
     State(app_state): State<Arc<AppState>>,
     mut req: Request<B>,
-    next: Next<B>,
-) -> Result<impl IntoResponse, Html<String>> {
+    next: Next,
+) -> Result<impl IntoResponse, Html<String>> 
+    where axum::http::Request<axum::body::Body>: std::convert::From<axum::http::Request<B>>{
     let token = cookie_jar
         .get("token")
         .map(|cookie| cookie.value().to_string())
@@ -72,7 +73,8 @@ pub async fn auth<B>(
 
 
     req.extensions_mut().insert(user);
-    Ok(next.run(req).await)
+    Ok(next.run(req.into()).await)
+    //Ok(next.run(req).await)
 }
 
 fn get_html_error(_app_state: &Arc<AppState>, msg: &str) -> Html<String>{

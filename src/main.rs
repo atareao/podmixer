@@ -25,8 +25,12 @@ use models::{
     Podcast,
     CompletePodcast,
     Error,
+    util,
+    Telegram,
+    Twitter,
 };
 use chrono::{DateTime, NaiveDateTime};
+use minijinja::Value;
 use rss::Item;
 use minijinja::{Environment, context};
 use html2text::from_read;
@@ -110,17 +114,17 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
     let mut podcasts = Podcast::get(pool).await?;
     let mut generate = false;
     for podcast in podcasts.as_mut_slice(){
-        debug!("Get episodes for {}", &podcast.name);
+        info!("Get episodes for {}", &podcast.name);
         match CompletePodcast::new(podcast).await{
             Ok(complete) => {
                 match complete.get_new(){
                     Ok(news) => {
-                        debug!("Podcast: {}. News: {}", &podcast.name, news.len());
+                        info!("Podcast: {}. News: {}", &podcast.name, news.len());
                         new_episodes.extend_from_slice(news.as_slice());
                         if !news.is_empty(){
                             generate = true;
                             let first = news.first().unwrap();
-                            debug!("{}", first.pub_date().unwrap());
+                            info!("{}", first.pub_date().unwrap());
                             if let Ok(pub_date) = DateTime::parse_from_rfc2822(first.pub_date().unwrap()){
                                 podcast.last_pub_date = pub_date.naive_local();
                             }else if let Ok(pub_date) = NaiveDateTime::parse_from_str(first.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S") {
@@ -145,9 +149,9 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
         }
     }
     if generate {
-        debug!("Init telegram");
+        info!("Init telegram");
         let telegram = Param::get_telegram(pool).await?;
-        debug!("Init twitter");
+        info!("Init twitter");
         let mut twitter = Param::get_twitter(pool).await?;
         if twitter.is_active(){
             debug!("What before access_token: {}", twitter.get_access_token());
@@ -185,20 +189,12 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                 let template = Param::get(pool, "telegram_template")
                     .await
                     .unwrap();
-                let mut env = Environment::new();
-                env.add_filter("truncate", truncate);
-                env.add_template("telegram", &template).unwrap();
-                let tmpl = env.get_template("telegram").unwrap();
-                let audio = &episode.enclosure().unwrap().url();
-                let message = tmpl.render(&ctx).unwrap();
-                let mut telegram_cannot_send_audio = true;
-                match telegram.send_audio(audio, &message).await{
-                    Ok(response) => {
-                        telegram_cannot_send_audio = false;
-                        debug!("Telegram: {response}");
+                match populate_in_telegram(&ctx, &template, &telegram, &episode).await{
+                    Ok(_) => {
+                        info!("Populated in Telegram: {}", episode.title().unwrap());
                     },
                     Err(error) => {
-                        error!("Could populate in Telegram: {error}");
+                        error!("Could NOT populate in Telegram: {error}");
                         let mut next_error = error.source();
                         // render causes as well
                         while next_error.is_some(){
@@ -207,34 +203,15 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                         }
                     },
                 }
-                if telegram_cannot_send_audio{
-                    match telegram.send_message(&message).await{
-                        Ok(response) => debug!("Telegram: {response}"),
-                        Err(error) => {
-                            error!("Could populate in Telegram: {error}");
-                            let mut next_error = error.source();
-                            // render causes as well
-                            while next_error.is_some(){
-                                error!("caused by: {:#}", next_error.unwrap());
-                                next_error = next_error.unwrap().source();
-                            }
-                        },
-                    }
-                }
             }
             if twitter.is_active(){
                 let template = Param::get(pool, "twitter_template")
                     .await
                     .unwrap();
-                let mut env = Environment::new();
-                env.add_template("twitter", &template).unwrap();
-                env.add_filter("truncate", truncate);
-                let tmpl = env.get_template("twitter").unwrap();
-                let message = tmpl.render(&ctx).unwrap();
-                match twitter.post(&message).await{
-                    Ok(response) => debug!("{:?}", response),
+                match populate_in_twitter(&ctx, &template, &twitter).await{
+                    Ok(_) => info!("Populated in Twitter: {}", episode.title().unwrap()),
                     Err(error) => {
-                        error!("Could populate in Twitter: {error}");
+                        error!("Could NOT populate in Twitter: {error}");
                         let mut next_error = error.source();
                         // render causes as well
                         while next_error.is_some(){
@@ -280,4 +257,30 @@ fn truncate(value: String, length: usize) -> String {
     let mut cloned = value.clone();
     cloned.truncate(length);
     cloned
+}
+
+async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, episode: &Item) -> Result<(), Error>{
+    let mut env = Environment::new();
+    env.add_filter("truncate", truncate);
+    env.add_template("telegram", &template)?;
+    let tmpl = env.get_template("telegram")?;
+    let url = episode.enclosure().unwrap().url();
+    let name = util::normalize(&episode.title().unwrap())?;
+    let ext = util::get_extension_from_filename(url).unwrap();
+    let filepath = format!("/tmp/{name}.{ext}");
+    util::fetch_url(url, &filepath).await?;
+    let message = tmpl.render(ctx)?;
+    telegram.send_audio(&filepath, &message).await?;
+    tokio::fs::remove_file(filepath).await?;
+    Ok(())
+}
+
+async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> Result<(), Error>{
+    let mut env = Environment::new();
+    env.add_template("twitter", &template).unwrap();
+    env.add_filter("truncate", truncate);
+    let tmpl = env.get_template("twitter").unwrap();
+    let message = tmpl.render(&ctx)?;
+    twitter.post(&message).await?;
+    Ok(())
 }

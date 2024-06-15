@@ -68,13 +68,14 @@ impl Twitter {
         Ok(())
     }
 
-    pub async fn post(&mut self, message: &str) -> Result<String, Error>{
+    pub async fn post(&self, message: &str) -> Result<String, Error>{
         debug!("post");
         let url = format!("{X_URL}/2/tweets");
         debug!("url: {url}. message: {message}");
         let message = json!({
             "text": message
         });
+        debug!("access_token: {}", self.access_token);
         Ok(Client::new()
             .post(url)
             .header("Content-Type", "application/json")
@@ -91,12 +92,13 @@ impl Twitter {
 #[cfg(test)]
 mod test{
     use super::Twitter;
-    use std::str::FromStr;
+    use dotenv::dotenv;
+    use std::{env, str::FromStr};
     use tracing_subscriber::{
         EnvFilter,
         layer::SubscriberExt,
         util::SubscriberInitExt
-};
+    };
 
     #[tokio::test]
     async fn twitter(){
@@ -104,13 +106,27 @@ mod test{
             .with(EnvFilter::from_str("debug").unwrap())
             .with(tracing_subscriber::fmt::layer())
         .init();
+        dotenv().ok();
         let active = true;
-        let client_id = "".to_string();
-        let client_secret = "".to_string();
-        let access_token = "".to_string();
-        let refresh_token = "".to_string();
+        let client_id = env::var("X_CLIENT_ID").expect("X_CLIENT_ID");
+        let client_secret = env::var("X_CLIENT_SECRET").expect("X_CLIENT_SECRET");
+        let access_token = env::var("X_ACCESS_TOKEN").expect("X_ACCESS_TOKEN");
+        let refresh_token = env::var("X_REFRESH_TOKEN").expect("X_REFRESH_TOKEN");
         let mut twitter = Twitter::new(active, client_id, client_secret, access_token, refresh_token);
-        assert!(twitter.update_access_token().await.is_ok())
-
+        assert!(twitter.update_access_token().await.is_ok());
+        let response = twitter.post("Prueba").await;
+        match response{
+            Ok(_) => println!("Populated in Twitter"),
+            Err(ref error) => {
+                println!("Could NOT populate in Twitter: {error}");
+                let mut next_error = error.source();
+                // render causes as well
+                while next_error.is_some(){
+                    println!("caused by: {:#}", next_error.unwrap());
+                    next_error = next_error.unwrap().source();
+                }
+            },
+        }
+        println!("{:?}", response);
     }
 }

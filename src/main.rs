@@ -264,9 +264,9 @@ async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, 
     env.add_filter("truncate", truncate);
     env.add_template("telegram", &template)?;
     let tmpl = env.get_template("telegram")?;
-    let url = episode.enclosure().unwrap().url();
-    let name = util::normalize(&episode.title().unwrap())?;
-    let ext = util::get_extension_from_filename(url).unwrap();
+    let url = episode.enclosure().ok_or("Not enclosure")?.url();
+    let name = util::normalize(&episode.title().ok_or("Not title")?)?;
+    let ext = util::get_extension_from_filename(url).ok_or("Not extension")?;
     let filename = format!("{name}.{ext}");
     let filepath = format!("/tmp/{filename}");
     util::fetch_url(url, &filepath).await?;

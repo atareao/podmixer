@@ -277,11 +277,17 @@ async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, 
 }
 
 async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> Result<(), Error>{
+    debug!("populate_in_twitter");
     let mut env = Environment::new();
-    env.add_template("twitter", &template).unwrap();
     env.add_filter("truncate", truncate);
-    let tmpl = env.get_template("twitter").unwrap();
+    env.add_template("twitter", &template)?;
+    let tmpl = env.get_template("twitter")?;
+    debug!("Template: {template}");
+    debug!("Context: {:?}", ctx);
+    debug!("Env: {:?}", env);
+    debug!("tmpl: {:?}", &tmpl);
     let message = tmpl.render(&ctx)?;
+    debug!("message: {message}");
     twitter.post(&message).await?;
     Ok(())
 }

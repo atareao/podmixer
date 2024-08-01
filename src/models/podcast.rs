@@ -42,7 +42,6 @@ impl Podcast{
     }
     pub async fn get(pool: &SqlitePool) -> Result<Vec<Podcast>, sqlx::error::Error>{
         let sql = "SELECT * FROM podcasts ORDER BY last_pub_date DESC";
-        deb
         query(sql)
             .map(Self::from_row)
             .fetch_all(pool)

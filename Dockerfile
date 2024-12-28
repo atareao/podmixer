@@ -1,7 +1,7 @@
 ###############################################################################
 ## Builder
 ###############################################################################
-FROM rust:alpine3.20 AS builder
+FROM rust:alpine3.21 AS builder
 
 LABEL maintainer="Lorenzo Carbonell <a.k.a. atareao> lorenzo.carbonell.cerezo@gmail.com"
 
@@ -30,14 +30,14 @@ RUN cargo build --release && \
 ###############################################################################
 ## Final image
 ###############################################################################
-FROM alpine:3.20
+FROM alpine:3.21
 
 ENV USER=app \
     UID=1000
 
 RUN apk add --update --no-cache \
             tzdata~=2024 \
-            sqlite~=3.45 && \
+            sqlite~=3.47 && \
     rm -rf /var/cache/apk && \
     rm -rf /var/lib/app/lists && \
     mkdir -p /app/db && \

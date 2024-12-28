@@ -179,9 +179,9 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice(){
             let ctx = context!(
-                title => episode.title().unwrap(),
+                title => episode.title().unwrap_or(""),
                 description => from_read(
-                    episode.description().unwrap().as_bytes(),
+                    episode.description().unwrap_or("").as_bytes(),
                     5000),
                 link => episode.link().unwrap(),
             );
@@ -189,7 +189,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                 let template = Param::get(pool, "telegram_template")
                     .await
                     .unwrap();
-                match populate_in_telegram(&ctx, &template, &telegram, &episode).await{
+                match populate_in_telegram(&ctx, &template, &telegram, episode).await{
                     Ok(_) => {
                         info!("Populated in Telegram: {}", episode.title().unwrap());
                     },
@@ -254,6 +254,14 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
 
 fn truncate(value: String, length: usize) -> String {
     debug!("truncate");
+    match value.char_indices().nth(length) {
+        Some((idx, _)) => value[..idx].to_string(),
+        None => value,
+    }
+}
+
+fn truncate2(value: String, length: usize) -> String {
+    debug!("truncate");
     let mut cloned = value.clone();
     cloned.truncate(length);
     cloned
@@ -262,10 +270,10 @@ fn truncate(value: String, length: usize) -> String {
 async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, episode: &Item) -> Result<(), Error>{
     let mut env = Environment::new();
     env.add_filter("truncate", truncate);
-    env.add_template("telegram", &template)?;
+    env.add_template("telegram", template)?;
     let tmpl = env.get_template("telegram")?;
     let url = episode.enclosure().ok_or("Not enclosure")?.url();
-    let name = util::normalize(&episode.title().ok_or("Not title")?)?;
+    let name = util::normalize(episode.title().ok_or("Not title")?)?;
     let ext = util::get_extension_from_filename(url).ok_or("Not extension")?;
     let filename = format!("{name}.{ext}");
     let filepath = format!("/tmp/{filename}");
@@ -280,14 +288,69 @@ async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> 
     debug!("populate_in_twitter");
     let mut env = Environment::new();
     env.add_filter("truncate", truncate);
-    env.add_template("twitter", &template)?;
+    env.add_template("twitter", template)?;
     let tmpl = env.get_template("twitter")?;
     debug!("Template: {template}");
     debug!("Context: {:?}", ctx);
     debug!("Env: {:?}", env);
     debug!("tmpl: {:?}", &tmpl);
-    let message = tmpl.render(&ctx)?;
+    let message = tmpl.render(ctx)?;
     debug!("message: {message}");
     twitter.post(&message).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncate_test_0() {
+        let prueba = "1234567890".to_string();
+        let result = truncate(prueba.clone(), 100);
+        assert_eq!(prueba, result);
+    }
+    #[test]
+    fn truncate_test_1() {
+        let prueba = "1234567890".to_string();
+        let result = truncate(prueba.clone(), 1);
+        assert_eq!("1".to_string(), result);
+    }
+    #[test]
+    fn truncate_test_2() {
+        let prueba = "".to_string();
+        let result = truncate(prueba.clone(), 10);
+        assert_eq!(prueba, result);
+    }
+    #[test]
+    fn truncate_test_3() {
+        let prueba = "".to_string();
+        let result = truncate(prueba.clone(), 0);
+        assert_eq!(prueba, result);
+    }
+
+    #[test]
+    fn truncate_test_4() {
+        let prueba = "1234567890".to_string();
+        let result = truncate2(prueba.clone(), 100);
+        assert_eq!(prueba, result);
+    }
+    #[test]
+    fn truncate_test_5() {
+        let prueba = "1234567890".to_string();
+        let result = truncate2(prueba.clone(), 1);
+        assert_eq!("1".to_string(), result);
+    }
+    #[test]
+    fn truncate_test_6() {
+        let prueba = "".to_string();
+        let result = truncate2(prueba.clone(), 10);
+        assert_eq!(prueba, result);
+    }
+    #[test]
+    fn truncate_test_7() {
+        let prueba = "".to_string();
+        let result = truncate2(prueba.clone(), 0);
+        assert_eq!(prueba, result);
+    }
 }

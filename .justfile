@@ -2,71 +2,25 @@ user    := "atareao"
 name    := `basename ${PWD}`
 version := `git tag -l  | tail -n1`
 
-default:
+
+list:
     @just --list
 
-build:
-    echo {{version}}
-    echo {{name}}
-    docker build -t {{user}}/{{name}}:{{version}} \
-                 -t {{user}}/{{name}}:latest \
-                 .
+dev:
+    cd front && pnpm i && pnpm run build && rm -rf ../back/static && mkdir ../back/static && cp -r ./dist/* ../back/static
+    cd back && RUST_LOG=debug cargo run
 
-tag:
-    docker tag {{user}}/{{name}}:{{version}} {{user}}/{{name}}:latest
+front:
+    cd front && pnpm run dev
+
+back:
+    cd back && RUST_LOG=debug cargo run
+
+build:
+    cd front && pnpm install --package-lock-only
+    cd back && cargo generate-lockfile
+    @docker build --tag={{user}}/{{name}}:{{version}} .
 
 push:
-    docker push {{user}}/{{name}} --all-tags
-
-run:
-    docker run --rm \
-               --init \
-               -e RUST_LOG='debug' \
-               -e RUST_ENV='production' \
-               -e DB_URL='/app/db/podmixer.db' \
-               -v db:/app/db \
-               -v rss:/app/rss \
-               --publish '6996:6996' \
-               --name {{name}} \
-               {{user}}/{{name}}
-
-sql sql:
-    @echo "sql: {{sql}}"
-    docker run --rm \
-               --init \
-               -it \
-               -e DB_URL='/app/db/podmixer.db' \
-               -v db:/app/db \
-               --name podmixerdb \
-               {{user}}/{{name}} \
-               sqlite3 /app/db/podmixer.db "{{sql}}"
-fields table:
-    docker run --rm \
-               --init \
-               -it \
-               -e DB_URL='/app/db/podmixer.db' \
-               -v db:/app/db \
-               --name podmixerdb \
-               {{user}}/{{name}} \
-               sqlite3 /app/db/podmixer.db "PRAGMA table_info({{table}})"
-
-exe:
-    docker run --rm \
-               --init \
-               -it \
-               -e RUST_LOG='debug' \
-               -e RUST_ENV='production' \
-               -e DB_URL='/app/db/podmixer.db' \
-               -v db:/app/db \
-               --publish '6996:6996' \
-               --name {{name}} \
-               {{user}}/{{name}} \
-               sh
-
-test:
-    echo {{version}}
-    echo {{name}}
-    docker build -t {{user}}/{{name}}:test \
-                 .
-    docker push {{user}}/{{name}}:test
+    @docker push {{user}}/{{name}}:{{version}}
 

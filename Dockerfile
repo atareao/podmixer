@@ -1,65 +1,19 @@
-###############################################################################
-## Builder
-###############################################################################
-FROM rust:alpine3.21 AS builder
+FROM node:slim as client-builder
+WORKDIR /client-builder
+COPY ./client .
+RUN npm i && npm run build
 
-LABEL maintainer="Lorenzo Carbonell <a.k.a. atareao> lorenzo.carbonell.cerezo@gmail.com"
+FROM rust:1-alpine3.21 as server-builder
+WORKDIR /server-builder
+COPY ./server .
+RUN apk update && apk add --no-cache musl-dev
+RUN cargo build --release --locked
 
-RUN apk add --update --no-cache \
-            autoconf \
-            gcc \
-            gdb \
-            git \
-            libdrm-dev \
-            libepoxy-dev \
-            make \
-            mesa-dev \
-            strace \
-            musl-dev && \
-    rm -rf /var/cache/apk && \
-    rm -rf /var/lib/app/lists
-
+FROM alpine:3.28
 WORKDIR /app
+COPY --from=server-builder /server-builder/target/release/server . 
+COPY --from=client-builder /client-builder/dist/ ./static/
+ENV RUST_LOG info
+EXPOSE 3000
+ENTRYPOINT [ "./server" ]
 
-COPY Cargo.toml Cargo.lock ./
-COPY src src
-
-RUN cargo build --release && \
-    cp /app/target/release/podmixer /app/podmixer
-
-###############################################################################
-## Final image
-###############################################################################
-FROM alpine:3.21
-
-ENV USER=app \
-    UID=1000
-
-RUN apk add --update --no-cache \
-            tzdata~=2024 \
-            sqlite~=3.47 && \
-    rm -rf /var/cache/apk && \
-    rm -rf /var/lib/app/lists && \
-    mkdir -p /app/db && \
-    mkdir -p /app/rss
-
-# Copy our build
-COPY --from=builder /app/podmixer /app/
-COPY ./assets /app/assets/
-COPY ./migrations /app/migrations/
-COPY ./templates /app/templates/
-
-# Create the user
-RUN adduser \
-    --disabled-password \
-    --gecos "" \
-    --home "/${USER}" \
-    --shell "/sbin/nologin" \
-    --uid "${UID}" \
-    "${USER}" && \
-    chown -R app:app /app
-
-WORKDIR /app
-USER app
-
-CMD ["/app/podmixer"]

@@ -1,0 +1,24 @@
+services:
+  podmixer:
+    image: docker.io/atareao/podmixer2:v0.2.0
+    container_name: podmixer
+    restart: unless-stopped
+    init: true
+    volumes:
+      - db:/app/db
+      - rss:/app/rss
+    ports:
+      - 3000:3000
+    environment:
+      RUST_LOG: info
+      RUST_BACKTRACE: "full"
+      RUST_ENV: production
+      DB_URL: /app/db/podmixer.db
+      PORT: 3000
+      SECRET: esto-es-un-secreto-que-no-se-puede-saber
+      SLEEP_TIME: 900
+      OLDER_THAN: 30
+
+volumes:
+  db: {}
+  rss: {}

@@ -16,9 +16,12 @@ front:
 back:
     cd back && RUST_LOG=debug cargo run
 
-build:
-    cd front && pnpm install --package-lock-only
+build2:
+    cd front && pnpm install --prod --lockfile-only
     cd back && cargo generate-lockfile
+    @docker build --tag={{user}}/{{name}}:{{version}} .
+
+build:
     @docker build --tag={{user}}/{{name}}:{{version}} .
 
 push:

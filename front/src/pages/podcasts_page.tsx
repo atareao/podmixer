@@ -315,8 +315,8 @@ export default class PodcastsPage extends React.Component<{}, PageState> {
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
                             <DateTimePicker
                                 label="Ultima publicación"
-                                value={dayjs(this.state.latest_pub_date)}
-                                onChange={(newValue) => this.setState({ latest_pub_date: dayjs(newValue).toDate() })}
+                                value={dayjs(this.state.last_pub_date)}
+                                onChange={(newValue) => this.setState({ last_pub_date: dayjs(newValue).toDate() })}
                             />
                         </LocalizationProvider>
                     </Grid>

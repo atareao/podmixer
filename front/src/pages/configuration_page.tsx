@@ -30,6 +30,7 @@ export default class ConfigurationPage extends react.Component<{}, Configuration
     }
 
     handleChange = (event: React.SyntheticEvent, newValue: number) => {
+        console.log(event);
         this.setState({ tabIndex: newValue });
     };
 

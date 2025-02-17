@@ -88,8 +88,10 @@ async fn main() -> Result<(), Error> {
     }
 
     let migrations = if var("RUST_ENV") == Ok("production".to_string()){
+        info!("Working on production");
         std::env::current_exe().unwrap().parent().unwrap().join("migrations")
     }else{
+        info!("Working on development");
         let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         Path::new(&crate_dir).join("migrations")
     };

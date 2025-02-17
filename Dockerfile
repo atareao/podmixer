@@ -68,5 +68,5 @@ WORKDIR /app
 USER app
 EXPOSE 3000
 
-ENTRYPOINT [ "/app/podmixer" ]
+CMD [ "/app/podmixer" ]
 

@@ -35,7 +35,7 @@ export default class Twitter extends React.Component<{}, TwitterState> {
             const body = `{
                 "active": ${JSON.stringify(this.state.active)},
                 "client_id": ${this.state.clientId?JSON.stringify(this.state.clientId):"\"\""},
-                "client_secret": ${this.state.clientSecret?this.state.clientSecret:"\"\""},
+                "client_secret": ${this.state.clientSecret?JSON.stringify(this.state.clientSecret):"\"\""},
                 "access_token": ${this.state.accessToken?JSON.stringify(this.state.accessToken):"\"\""},
                 "refresh_token": ${this.state.refreshToken?JSON.stringify(this.state.refreshToken):"\"\""},
                 "template": ${this.state.template?JSON.stringify(this.state.template):"\"\""}
@@ -61,9 +61,12 @@ export default class Twitter extends React.Component<{}, TwitterState> {
                     template: data.template,
                     active: data.active,
                 });
+           } else {
+               this.loadData();
            }
         } catch (error) {
             console.error('Error:', error);
+            this.loadData();
         }
     }
 

@@ -70,7 +70,7 @@ export default class NavBar extends react.Component {
                                 variant="h6"
                                 noWrap
                                 component="a"
-                                href="#app-bar-with-responsive-menu"
+                                href="/"
                                 sx={{
                                     m: 1,
                                     mr: 2,

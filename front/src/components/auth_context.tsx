@@ -89,6 +89,7 @@ export class AuthContextProvider extends React.Component<AuthContextProviderProp
         if(this.logoutTimer) {
             clearTimeout(this.logoutTimer);
         }
+        window.history.pushState({}, "", "/login");
     }
 
     loginHandler = (token: string) => {

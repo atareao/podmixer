@@ -12,7 +12,7 @@ import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
 import AdbIcon from '@mui/icons-material/Adb';
-import logo from '../assets/logo.svg';
+//import logo from '../assets/logo.svg';
 import { NavLink } from "react-router";
 
 const pages = [
@@ -64,7 +64,7 @@ export default class NavBar extends react.Component {
                         <Toolbar disableGutters>
                             <Avatar
                                 alt="Podmixer"
-                                src={logo}
+                                src="/images/logo.svg"
                                 sx={{ width: 32, height: 32, mx: "auto" }} />
                             <Typography
                                 variant="h6"

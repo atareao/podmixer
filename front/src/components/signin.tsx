@@ -4,7 +4,6 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid2';
 import Avatar from '@mui/material/Avatar';
-import logo from '../assets/logo.svg';
 
 interface SignInProps {
     onSubmit: Function
@@ -67,7 +66,7 @@ export default class SignIn extends React.Component<SignInProps, SignInState> {
                         <Box sx={{ m: 1 }}>
                             <Avatar
                                 alt="PreEmer"
-                                src={logo}
+                                src="/images/logo.svg"
                                 sx={{ width: 256, height: 256, mx: "auto" }} />
                         </Box>
                         <Box sx={{ m: 1 }}>

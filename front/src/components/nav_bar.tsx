@@ -66,23 +66,24 @@ export default class NavBar extends react.Component {
                                 alt="Podmixer"
                                 src="/images/logo.svg"
                                 sx={{ width: 32, height: 32, mx: "auto" }} />
-                            <Typography
-                                variant="h6"
-                                noWrap
-                                component="a"
-                                href="/"
-                                sx={{
-                                    m: 1,
-                                    mr: 2,
-                                    display: { xs: 'none', md: 'flex' },
-                                    fontWeight: 700,
-                                    letterSpacing: '.3rem',
-                                    color: 'inherit',
-                                    textDecoration: 'none',
-                                }}
-                            >
-                                Podmixer
-                            </Typography>
+                            <NavLink to="/" style={{ textDecoration: 'none', color: 'inherit' }} end>
+                                <Typography
+                                    variant="h6"
+                                    noWrap
+                                    component="a"
+                                    sx={{
+                                        m: 1,
+                                        mr: 2,
+                                        display: { xs: 'none', md: 'flex' },
+                                        fontWeight: 700,
+                                        letterSpacing: '.3rem',
+                                        color: 'inherit',
+                                        textDecoration: 'none',
+                                    }}
+                                >
+                                    Podmixer
+                                </Typography>
+                            </NavLink>
 
                             <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
                                 <IconButton
@@ -113,8 +114,8 @@ export default class NavBar extends react.Component {
                                 >
                                     {pages.map((page) => (
                                         <MenuItem key={page.name} onClick={this.handleCloseNavMenu}>
-                                            <NavLink to={page.navigateTo} end>
-                                                <Typography sx={{ textAlign: 'center' }}>{page.name}</Typography>
+                                            <NavLink to={page.navigateTo} style={{ textDecoration: 'none' }} end>
+                                                <Typography sx={{ textAlign: 'center', textDecoration: 'none' }}>{page.name}</Typography>
                                             </NavLink>
                                         </MenuItem>
                                     ))}
@@ -144,10 +145,10 @@ export default class NavBar extends react.Component {
                                     <Button
                                         key={page.name}
                                         onClick={this.handleCloseNavMenu}
-                                        sx={{ my: 2, color: 'white', display: 'block' }}
+                                        sx={{ my: 2, color: 'white', display: 'block', textDecoration: 'none' }}
                                     >
-                                        <NavLink to={page.navigateTo} end style={{textDecoration: 'none'}}>
-                                            <Typography sx={{ textAlign: 'center' }}>{page.name}</Typography>
+                                        <NavLink to={page.navigateTo} style={{ textDecoration: 'none', color: 'inherit' }} end>
+                                            <Typography sx={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }}>{page.name}</Typography>
                                         </NavLink>
                                     </Button>
                                 ))}
@@ -182,8 +183,12 @@ export default class NavBar extends react.Component {
                                                     this.handleCloseUserMenu();
                                                 }
                                             }>
-                                            <NavLink to={setting.navigateTo} end>
-                                                <Typography sx={{ textAlign: 'center' }}>{setting.name}</Typography>
+                                            <NavLink
+                                                to={setting.navigateTo}
+                                                style={{ textDecoration: 'none', color: 'inherit' }}
+                                                end
+                                            >
+                                                <Typography sx={{ textAlign: 'center', textDecoration: 'none', color: 'inherit' }}>{setting.name}</Typography>
                                             </NavLink>
                                         </MenuItem>
                                     ))}

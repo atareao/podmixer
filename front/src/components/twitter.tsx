@@ -94,7 +94,7 @@ export default class Twitter extends React.Component<{}, TwitterState> {
                     accessToken: data.access_token,
                     refreshToken: data.refresh_token,
                     template: data.template,
-                    active: data.active === "true",
+                    active: data.active,
                 });
             }
         } catch (error) {

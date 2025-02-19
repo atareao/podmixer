@@ -17,8 +17,10 @@ back:
     cd back && RUST_LOG=debug cargo run
 
 build:
-    @docker build --tag={{user}}/{{name}}:{{version}} .
+    @docker build \
+        --tag={{user}}/{{name}}:{{version}} \
+        --tag={{user}}/{{name}}:latest \
+        .
 
 push:
-    @docker push {{user}}/{{name}}:{{version}}
-
+    @docker push --all-tags {{user}}/{{name}}

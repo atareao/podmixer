@@ -129,6 +129,7 @@ async fn main() -> Result<(), Error> {
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
     let app = Router::new()
+        .nest_service("/rss", ServeDir::new("./rss"))
         .nest("/api/v1", api_routes)
         .fallback_service(ServeDir::new("static").fallback(ServeFile::new("static/index.html")))
         .layer(TraceLayer::new_for_http())
@@ -167,12 +168,11 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
     let mut podcasts = Podcast::get(pool).await?;
     let mut generate = false;
     for podcast in podcasts.as_mut_slice(){
-        info!("Get episodes for {}", &podcast.name);
         match CompletePodcast::new(podcast).await{
             Ok(complete) => {
                 match complete.get_new(){
                     Ok(news) => {
-                        info!("Podcast: {}. News: {}", &podcast.name, news.len());
+                        info!("Get episodes for: {}. News: {}", &podcast.name, news.len());
                         new_episodes.extend_from_slice(news.as_slice());
                         if !news.is_empty(){
                             generate = true;
@@ -239,6 +239,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                 link => episode.link().unwrap(),
             );
             if telegram.is_active(){
+                info!("Trying to populate in Telegram: {}", episode.title().unwrap());
                 let template = Param::get(pool, "telegram_template")
                     .await
                     .unwrap();
@@ -258,6 +259,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                 }
             }
             if twitter.is_active(){
+                info!("Trying to populate in Twitter: {}", episode.title().unwrap());
                 let template = Param::get(pool, "twitter_template")
                     .await
                     .unwrap();

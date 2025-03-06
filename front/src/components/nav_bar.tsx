@@ -69,8 +69,6 @@ export default class NavBar extends react.Component {
                             <NavLink to="/" style={{ textDecoration: 'none', color: 'inherit' }} end>
                                 <Typography
                                     variant="h6"
-                                    noWrap
-                                    component="a"
                                     sx={{
                                         m: 1,
                                         mr: 2,

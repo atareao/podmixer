@@ -16,11 +16,13 @@
     "@mui/material": "^6.4.4",
     "@mui/x-data-grid": "^7.26.0",
     "@mui/x-date-pickers": "^7.26.0",
+    "@types/valid-url": "^1.0.7",
     "dayjs": "^1.11.13",
     "jwt-decode": "^4.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router": "^7.1.5"
+    "react-router": "^7.1.5",
+    "valid-url": "^1.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",

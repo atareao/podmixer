@@ -52,8 +52,8 @@ export default class PodcastsPage extends React.Component<{}, State> {
         this.setState({ isLoading: false });
         this.columns = [
             { field: 'name', headerName: 'Nombre', type: 'string', width: 180 },
-            { field: 'url', headerName: 'Url', type: 'string', width: 470, editable: true },
-            { field: 'active', headerName: 'Activo', type: 'boolean', width: 60, editable: true },
+            { field: 'url', headerName: 'Url', type: 'string', width: 470 },
+            { field: 'active', headerName: 'Activo', type: 'boolean', width: 60 },
             {
                 field: 'last_pub_date',
                 headerName: 'Ultima publicación',

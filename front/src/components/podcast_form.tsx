@@ -14,7 +14,7 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import dayjs from 'dayjs';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-//import {isHttpUri, isHttpsUri} from 'valid-url';
+import 'dayjs/locale/es';
 
 const ENDPOINT = 'podcasts';
 
@@ -89,8 +89,9 @@ export default class PodcastForm extends React.Component<Props, State> {
                         <Checkbox checked={this.state.row?.active != null ? this.state.row.active : false } onChange={(e) =>  this.setState({ row: { ...this.state.row, active: e.target.checked }})} />
                     </Grid>
                     <Grid size={2.5}>
-                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={"es"}>
                             <DateTimePicker
+                                views={['day', 'month', 'year', 'hours', 'minutes', 'seconds']}
                                 label="Ultima publicación"
                                 value={dayjs(this.state.row?.last_pub_date != null? this.state.row.last_pub_date: dayjs() )}
                                 onChange={(newValue) => this.setState({ row: { ...this.state.row, last_pub_date:  dayjs(newValue).toDate() }})}

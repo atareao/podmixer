@@ -279,8 +279,8 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
         // Sort episodes
-        all_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
-        older_than_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
+        all_episodes.sort_by(item_comparator);
+        older_than_episodes.sort_by(item_comparator);
         //Make short feed
         match feed.rss(older_than_episodes){
             Ok(short_feed) => {
@@ -356,6 +356,23 @@ async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> 
     Ok(())
 }
 
+pub fn item_comparator(a: &Item, b: &Item) -> std::cmp::Ordering {
+    let date_a = get_pub_date_timestamp(a);
+    let date_b = get_pub_date_timestamp(b);
+    date_a.cmp(&date_b)
+}
+
+pub fn get_pub_date_timestamp(item: &Item) -> i64{
+    if let Ok(pub_date) = DateTime::parse_from_rfc2822(item.pub_date().unwrap()){
+        pub_date.timestamp()
+    }else if let Ok(pub_date) = DateTime::parse_from_str(item.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S") {
+        pub_date.timestamp()
+    }else {
+        0
+    }
+
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -408,5 +425,37 @@ mod tests {
         let prueba = "".to_string();
         let result = truncate2(prueba.clone(), 0);
         assert_eq!(prueba, result);
+    }
+    #[test]
+    fn convert_1() {
+        let date1 = "Fri, 28 Feb 2025 16:08:58 +0100";
+        let value = DateTime::parse_from_rfc2822(date1);
+        debug!("{:?}", value);
+        assert!(value.is_ok());
+
+    }
+    #[test]
+    fn convert_2() {
+        let date1 = "Fri, 28 Feb 2025 16:08:58 GMT";
+        let value = DateTime::parse_from_rfc2822(date1);
+        debug!("{:?}", value);
+        assert!(value.is_ok());
+
+    }
+    #[test]
+    fn convert_3() {
+        let date1 = "Fri, 28 Feb 2025 16:08:58";
+        let value = DateTime::parse_from_rfc2822(date1);
+        debug!("{:?}", value);
+        assert!(value.is_ok());
+
+    }
+    #[test]
+    fn convert_4() {
+        let date1 = "Fri, 28 Feb 2025 16:08:58 GMT";
+        let value = DateTime::parse_from_rfc2822(date1);
+        debug!("{:?}", value);
+        assert!(value.is_ok());
+
     }
 }

@@ -13,7 +13,7 @@ futures = "0.3.31"
 html2text = "0.14.0"
 jsonwebtoken = "9.3.1"
 minijinja = { version = "2.7.0", features = ["loader"] }
-openssl = { version = "0.10.71", features = ["vendored"] }
+openssl = { version = "0.10.72", features = ["vendored"] }
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = ["json", "multipart"] }
 rss = "2.0.11"

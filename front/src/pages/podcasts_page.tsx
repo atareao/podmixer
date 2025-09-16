@@ -1,17 +1,17 @@
 import React from "react";
 import Paper from '@mui/material/Paper';
-import Box from '@mui/material/Box';
+import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
-import Card from '@mui/material/Card';
-import CardHeader from '@mui/material/CardHeader';
-import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
 import SimpleTable from "../components/simple_table";
 import { loadData } from '../common/utils';
 import PodcastDialog, {Action, } from "../components/dialogs/podcast_dialog";
 import Podcast from '../models/podcast';
 import {
+    GridRenderCellParams,
     GridRowModel,
 } from '@mui/x-data-grid';
+import dayjs from 'dayjs';
 
 const ENDPOINT = 'podcasts';
 
@@ -92,31 +92,45 @@ export default class PodcastsPage extends React.Component<{}, State> {
             columns: [
                 {
                     field: "name",
-                    haeaderName: "Nombre",
-                    typs: "string",
-                    "width": 150,
-                    editable: true,
+                    headerName: "Nombre",
+                    type: "string",
+                    width: 200,
                 },
                 {
                     field: "url",
-                    haeaderName: "Url",
-                    typs: "string",
-                    "width": 400,
-                    editable: true,
+                    headerName: "Url",
+                    type: "string",
+                    width: 600,
                 },
                 {
                     field: "active",
-                    haeaderName: "Active",
-                    typs: "boolean",
-                    "width": 150,
-                    editable: true,
+                    headerName: "Active",
+                    type: "boolean",
+                    width: 100,
                 },
                 {
                     field: "last_pub_date",
-                    haeaderName: "Ultima publicación",
-                    typs: "date",
-                    "width": 150,
-                    editable: true,
+                    headerName: "Ultima publicación",
+                    type: "dste",
+                    width: 250,
+                    renderCell: (params: GridRenderCellParams<any, string>) => {
+                        console.log(params.value);
+                        if(params.value) {
+                            const ts = new Date(params.value);
+                            console.log(ts);
+                        }
+                        return (
+                        <>
+                            <TextField
+                                sx={{ width: 160, }}
+                                type="date"
+                                variant="filled"
+                                slotProps={{ input: {readOnly: true } }}
+                                value={dayjs(params.value).format("YYYY-MM-DD")}
+                            />
+                            </>
+                        );
+                    }
                 },
             ],
         });
@@ -153,7 +167,6 @@ export default class PodcastsPage extends React.Component<{}, State> {
         if (this.state.isLoading) {
             return (
                 <>
-                    <Box sx={{ height: "100px" }} />
                     <Paper sx={{ width: "100%", p: 2 }}>
                         <h1>Elements</h1>
                         <div>Loading...</div>
@@ -165,7 +178,6 @@ export default class PodcastsPage extends React.Component<{}, State> {
         console.log("Estado de podcast:", this.state.podcast);
         return (
             <>
-                <Box style={{ height: 100 }} />
                 { this.state.dialogOpen === true && (
                 <PodcastDialog
                     dialogOpen={this.state.dialogOpen}
@@ -174,28 +186,16 @@ export default class PodcastsPage extends React.Component<{}, State> {
                     podcast={this.state.podcast}
                 />)}
                 <Stack spacing={2}>
-                    <Card variant="outlined">
-                        <CardHeader title="Podcasts" />
-                        <CardContent>
-                            <Card
-                                sx={{
-                                    p: 2,
-                                    display: "flex",
-                                    gap: "20px",
-                                    flexWrap: "wrap",
-                                    margin: "auto",
-                                }}
-                            >
-                                <SimpleTable
-                                    onAdd={this.onAdd.bind(this)}
-                                    onEdit={this.onEdit.bind(this)}
-                                    onDelete={this.onDelete.bind(this)}
-                                    columns={this.state.columns}
-                                    rows={this.state.rows}
-                                />
-                            </Card>
-                        </CardContent>
-                    </Card>
+                    <Typography variant="h4" component="div" sx={{ flexGrow: 1, ml: 2 }}>
+                    Podcasts
+                    </Typography>
+                                    <SimpleTable
+                                        onAdd={this.onAdd.bind(this)}
+                                        onEdit={this.onEdit.bind(this)}
+                                        onDelete={this.onDelete.bind(this)}
+                                        columns={this.state.columns}
+                                        rows={this.state.rows}
+                                    />
                 </Stack>
             </>
         );

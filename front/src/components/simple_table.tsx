@@ -71,7 +71,7 @@ export default class SimpleTable extends React.Component<Props, State> {
             {
                 field: 'actions',
                 type: 'actions',
-                headerName: 'Actions',
+                headerName: 'Acciones',
                 width: 100,
                 cellClassName: 'actions',
                 getActions: ({ id }) => {

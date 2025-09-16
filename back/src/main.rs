@@ -201,13 +201,12 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
             Err(e) => error!("Error doing the work: {}", e),
         }
     }
-    let dothis = false;
-    if !dothis {
+    if generate {
         info!("Init telegram");
         let telegram = Telegram::get(pool).await?;
         info!("Init twitter");
         let mut twitter = Twitter::get(pool).await?;
-        if twitter.is_active() && dothis{
+        if twitter.is_active() {
             debug!("What before access_token: {}", twitter.get_access_token());
             debug!("What before refresh_token: {}", twitter.get_refresh_token());
             debug!("Update twitter");
@@ -239,7 +238,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                     5000).unwrap_or("".to_string()),
                 link => episode.link().unwrap(),
             );
-            if telegram.is_active() && dothis {
+            if telegram.is_active() {
                 info!("Trying to populate in Telegram: {}", episode.title().unwrap());
                 let template = Param::get(pool, "telegram_template")
                     .await
@@ -259,7 +258,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                     },
                 }
             }
-            if twitter.is_active() && dothis{
+            if twitter.is_active() {
                 info!("Trying to populate in Twitter: {}", episode.title().unwrap());
                 let template = Param::get(pool, "twitter_template")
                     .await

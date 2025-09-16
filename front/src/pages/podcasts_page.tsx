@@ -3,15 +3,19 @@ import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import { motion } from "framer-motion";
 import SimpleTable from "../components/simple_table";
 import { loadData } from '../common/utils';
-import PodcastDialog, {Action, } from "../components/dialogs/podcast_dialog";
+import PodcastDialog, { Action, } from "../components/dialogs/podcast_dialog";
 import Podcast from '../models/podcast';
 import {
     GridRenderCellParams,
     GridRowModel,
 } from '@mui/x-data-grid';
 import dayjs from 'dayjs';
+import { PiArrowArcRightBold } from "react-icons/pi";
+import { BASE_URL } from '../constants';
 
 const ENDPOINT = 'podcasts';
 
@@ -22,6 +26,7 @@ interface State {
     podcast?: Podcast;
     columns: any[];
     isLoading: boolean;
+    isSpinning: boolean;
 }
 
 export default class PodcastsPage extends React.Component<{}, State> {
@@ -35,6 +40,7 @@ export default class PodcastsPage extends React.Component<{}, State> {
             dialogAction: Action.ADD,
             columns: [],
             isLoading: true,
+            isSpinning: false,
         };
     }
 
@@ -115,19 +121,19 @@ export default class PodcastsPage extends React.Component<{}, State> {
                     width: 250,
                     renderCell: (params: GridRenderCellParams<any, string>) => {
                         console.log(params.value);
-                        if(params.value) {
+                        if (params.value) {
                             const ts = new Date(params.value);
                             console.log(ts);
                         }
                         return (
-                        <>
-                            <TextField
-                                sx={{ width: 160, }}
-                                type="date"
-                                variant="filled"
-                                slotProps={{ input: {readOnly: true } }}
-                                value={dayjs(params.value).format("YYYY-MM-DD")}
-                            />
+                            <>
+                                <TextField
+                                    sx={{ width: 160, }}
+                                    type="date"
+                                    variant="filled"
+                                    slotProps={{ input: { readOnly: true } }}
+                                    value={dayjs(params.value).format("YYYY-MM-DD")}
+                                />
                             </>
                         );
                     }
@@ -162,6 +168,23 @@ export default class PodcastsPage extends React.Component<{}, State> {
         this.setState({ dialogOpen: false });
     };
 
+    handleClick = async () => {
+        // Evita reinicios si ya está girando.
+        if (this.state.isSpinning) {
+            return;
+        }
+        this.setState({ isSpinning: true });
+        const url = `${BASE_URL}/api/v1/podcasts/generate`;
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+        });
+        console.log("Response status:", response.status);
+        this.setState({ isSpinning: false });
+    }
+
     render = () => {
         console.log("Rendering dyptichs_page");
         if (this.state.isLoading) {
@@ -178,24 +201,59 @@ export default class PodcastsPage extends React.Component<{}, State> {
         console.log("Estado de podcast:", this.state.podcast);
         return (
             <>
-                { this.state.dialogOpen === true && (
-                <PodcastDialog
-                    dialogOpen={this.state.dialogOpen}
-                    handleClose={this.handleClose}
-                    action={this.state.dialogAction}
-                    podcast={this.state.podcast}
-                />)}
+                {this.state.dialogOpen === true && (
+                    <PodcastDialog
+                        dialogOpen={this.state.dialogOpen}
+                        handleClose={this.handleClose}
+                        action={this.state.dialogAction}
+                        podcast={this.state.podcast}
+                    />)}
                 <Stack spacing={2}>
-                    <Typography variant="h4" component="div" sx={{ flexGrow: 1, ml: 2 }}>
-                    Podcasts
-                    </Typography>
-                                    <SimpleTable
-                                        onAdd={this.onAdd.bind(this)}
-                                        onEdit={this.onEdit.bind(this)}
-                                        onDelete={this.onDelete.bind(this)}
-                                        columns={this.state.columns}
-                                        rows={this.state.rows}
-                                    />
+                    <Stack
+                        direction="row"
+                        alignItems="center"
+                    >
+                        <Typography variant="h4" component="div" sx={{ flexGrow: 1, ml: 2 }}>
+                            Podcasts
+                        </Typography>
+                        <Button
+                            onClick={this.handleClick}
+                            variant="contained"
+                            color="primary"
+                        >
+                            <motion.div
+                                // Condicionalmente establece el estado de la animación.
+                                animate={this.state.isSpinning ? "spin" : "stop"}
+                                variants={{
+                                    // Define el estado 'spin': gira 360 grados.
+                                    spin: {
+                                        rotate: 360,
+                                        transition: {
+                                            repeat: Infinity, // Repite la animación indefinidamente.
+                                            duration: 1, // Una vuelta por segundo.
+                                            ease: "linear",
+                                        }
+                                    },
+                                    // Define el estado 'stop': la rotación vuelve a 0 y se detiene.
+                                    stop: {
+                                        rotate: 0,
+                                        transition: {
+                                            duration: 0.5
+                                        }
+                                    },
+                                }}
+                            >
+                                <PiArrowArcRightBold />
+                            </motion.div>
+                        </Button>
+                    </Stack>
+                    <SimpleTable
+                        onAdd={this.onAdd.bind(this)}
+                        onEdit={this.onEdit.bind(this)}
+                        onDelete={this.onDelete.bind(this)}
+                        columns={this.state.columns}
+                        rows={this.state.rows}
+                    />
                 </Stack>
             </>
         );

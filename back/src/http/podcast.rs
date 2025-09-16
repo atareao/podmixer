@@ -8,7 +8,14 @@ use axum::{
 };
 use tracing::{debug, error};
 
-use crate::models::{ApiResponse, AppState, Data, Podcast, NewPodcast, Id};
+use crate::models::{
+    ApiResponse,
+    AppState,
+    Data,
+    Podcast,
+    NewPodcast,
+    Id
+};
 
 pub fn podcast_router() -> Router<Arc<AppState>> {
     Router::new()

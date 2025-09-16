@@ -1,7 +1,7 @@
 import react from "react";
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import Grid from '@mui/material/Grid2';
+import Grid from '@mui/material/Grid';
 import { Navigate } from 'react-router';
 import Card from '@mui/material/Card';
 import CardHeader from '@mui/material/CardHeader';

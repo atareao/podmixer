@@ -1,145 +1,41 @@
 import React from "react";
 import Paper from '@mui/material/Paper';
-import Toolbar from '@mui/material/Toolbar';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
+import Card from '@mui/material/Card';
+import CardHeader from '@mui/material/CardHeader';
+import CardContent from '@mui/material/CardContent';
+import SimpleTable from "../components/simple_table";
 import { loadData } from '../common/utils';
-import PodcastForm from '../components/podcast_form';
+import PodcastDialog, {Action, } from "../components/dialogs/podcast_dialog";
+import Podcast from '../models/podcast';
 import {
-    GridRowModesModel,
-    DataGrid,
-    GridColDef,
-    GridActionsCellItem,
-    GridRowId,
     GridRowModel,
-    GridPaginationModel,
 } from '@mui/x-data-grid';
-import Snackbar from '@mui/material/Snackbar';
-import Alert, { AlertProps } from '@mui/material/Alert';
 
-import { BASE_URL } from '../constants';
 const ENDPOINT = 'podcasts';
 
 interface State {
-    rows: GridRowModel[]
-    rowModesModel: GridRowModesModel
-    pagination: GridPaginationModel
-    selectedRow: GridRowModel | null
-    isLoading: boolean
-    snackbar: Pick<AlertProps, 'children' | 'severity'> | null
+    rows: GridRowModel[];
+    dialogOpen: boolean;
+    dialogAction: Action;
+    podcast?: Podcast;
+    columns: any[];
+    isLoading: boolean;
 }
 
 export default class PodcastsPage extends React.Component<{}, State> {
 
-    columns: GridColDef<GridRowModel>[];
     constructor(props: {}) {
         super(props);
         console.log("Constructing page");
         this.state = {
             rows: [],
-            rowModesModel: {},
-            pagination: { page: 1, pageSize: 10 },
-            selectedRow: null,
+            dialogOpen: false,
+            dialogAction: Action.ADD,
+            columns: [],
             isLoading: true,
-            snackbar: null,
         };
-        this.columns = [];
-    }
-
-    componentDidMount = async () => {
-        console.log("Mounting page");
-        await this.loadData();
-        this.setState({ isLoading: false });
-        this.columns = [
-            { field: 'name', headerName: 'Nombre', type: 'string', width: 180 },
-            { field: 'url', headerName: 'Url', type: 'string', width: 470 },
-            { field: 'active', headerName: 'Activo', type: 'boolean', width: 60 },
-            {
-                field: 'last_pub_date',
-                headerName: 'Ultima publicación',
-                type: 'dateTime',
-                width: 220,
-                editable: true,
-                valueGetter: (value) => value && new Date(value),
-            },
-            {
-                field: 'actions',
-                type: 'actions',
-                headerName: 'Actions',
-                width: 100,
-                cellClassName: 'actions',
-                getActions: ({ id }) => {
-                    return [
-                        <GridActionsCellItem
-                            icon={<EditIcon />}
-                            label="Edit"
-                            className="textPrimary"
-                            onClick={this.handleEditClick(id)}
-                            color="inherit"
-                        />,
-                        <GridActionsCellItem
-                            icon={<DeleteIcon />}
-                            label="Delete"
-                            onClick={this.handleDeleteClick(id)}
-                            color="inherit"
-                        />,
-                    ];
-                },
-            },
-        ];
-    }
-
-    render = () => {
-        if (this.state.isLoading) {
-            return (
-                <>
-                    <Toolbar />
-                    <Paper sx={{ width: '100%', p: 2 }}>
-                        <h1>Subclasses</h1>
-                        <div>Loading...</div>
-                    </Paper>
-                </>
-            );
-        }
-        return (
-            <>
-                <Toolbar />
-                <Paper sx={{ width: '100%', p: 2 }}>
-                    <h1>Podcasts</h1>
-                    <PodcastForm
-                        handleOnNew={this.onNew}
-                        handleOnUpdated={this.onUpdate}
-                        handleOnCancelled={this.onCancelled}
-                        row={this.state.selectedRow}
-                    />
-                    <DataGrid
-                        initialState={{
-                            sorting: {
-                                sortModel: [{ field: 'last_pub_date', sort: 'desc' }]
-                            },
-                        }}
-                        paginationModel={this.state.pagination}
-                        pageSizeOptions={[10]}
-                        onPaginationModelChange={(newPaginationModel) => this.setState({ pagination: newPaginationModel })}
-                        rows={this.state.rows}
-                        columns={this.columns}
-                        editMode="row"
-                        rowModesModel={this.state.rowModesModel}
-                        onRowModesModelChange={this.handleRowModesModelChange}
-                    />
-                    {!!this.state.snackbar && (
-                        <Snackbar
-                            open
-                            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-                            onClose={this.handleCloseSnackbar}
-                            autoHideDuration={2000}
-                        >
-                            <Alert {...this.state.snackbar} onClose={this.handleCloseSnackbar} />
-                        </Snackbar>
-                    )}
-                </Paper>
-            </>
-        );
     }
 
     loadData = async () => {
@@ -147,68 +43,161 @@ export default class PodcastsPage extends React.Component<{}, State> {
         const responseJson = await loadData(ENDPOINT);
         if (responseJson.status === 200) {
             console.log(`Data loaded: JSON: ${JSON.stringify(responseJson)}`);
-            this.setState({
-                rows: responseJson.data,
-                pagination: { ...this.state.pagination, page: 0 },
-            });
+            return responseJson.data;
         }
+        return [];
     }
 
-    onNew = async (row: GridRowModel) => {
-        console.log("New row:", row);
+    onAdd() {
+        console.log("Add new element");
         this.setState({
-            rows: [...this.state.rows.filter((row) => row.id !== -1), row],
-            selectedRow: null
+            dialogOpen: true,
+            dialogAction: Action.ADD,
+            podcast: undefined,
         });
     }
 
-    onUpdate = async (updatedRow: GridRowModel) => {
-        console.log('Updated row:', updatedRow);
-        this.setState({ rows: [...this.state.rows.filter((row) => row.id !== updatedRow.id), updatedRow] });
-
-    }
-
-    onCancelled = () => {
-        console.log("Cancelled");
-        this.setState({ selectedRow: null });
-    }
-
-    handleEditClick = (id: GridRowId) => async () => {
-        console.log("Edit:", id);
-        this.state.rows.some((row) => {
-            if (row.id === id) {
-                console.log("Editing:", row);
-                this.setState({ selectedRow: row });
-                return true;
-            }
+    onEdit(editedItem: any) {
+        console.log("Edit element", editedItem);
+        this.setState({
+            dialogOpen: true,
+            dialogAction: Action.EDIT,
+            podcast: { ...this.state.podcast, ...editedItem }
         });
     }
 
-    handleDeleteClick = (id: GridRowId) => async () => {
-        try {
-            const response = await fetch(`${BASE_URL}/api/v1/${ENDPOINT}?id=${id}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
+    onDelete(editedItem: any) {
+        console.log("Delete element", editedItem);
+        this.setState({
+            dialogOpen: true,
+            dialogAction: Action.DELETE,
+            podcast: { ...this.state.podcast, ...editedItem }
+        });
+    }
+
+    componentDidUpdate(prevProps: any, prevState: any) {
+        console.log("Updating diptychs_page");
+        console.log(`prevProps:`, prevProps);
+        console.log(`prevState:`, prevState.rows);
+        console.log(`currentProps:`, this.props);
+        console.log(`currentState:`, this.state.rows);
+    }
+
+    componentDidMount = async () => {
+        console.log("Mounting page");
+        const rows = await this.loadData();
+        this.setState({
+            isLoading: false,
+            rows: rows,
+            columns: [
+                {
+                    field: "name",
+                    haeaderName: "Nombre",
+                    typs: "string",
+                    "width": 150,
+                    editable: true,
                 },
-            });
-            if (response.ok) {
-                this.setState({ rows: this.state.rows.filter((row) => row.id !== id) });
+                {
+                    field: "url",
+                    haeaderName: "Url",
+                    typs: "string",
+                    "width": 400,
+                    editable: true,
+                },
+                {
+                    field: "active",
+                    haeaderName: "Active",
+                    typs: "boolean",
+                    "width": 150,
+                    editable: true,
+                },
+                {
+                    field: "last_pub_date",
+                    haeaderName: "Ultima publicación",
+                    typs: "date",
+                    "width": 150,
+                    editable: true,
+                },
+            ],
+        });
+    }
+
+    handleClose = (ok: boolean, podcast: Podcast | null) => {
+        console.log("Closing dialog with action:", ok);
+        console.log("State", this.state.dialogAction);
+        console.log(podcast);
+        if (ok && podcast != null) {
+            if (this.state.dialogAction === Action.ADD) {
+                console.log("Adding new podcast", podcast);
+                this.setState({ rows: [...this.state.rows, podcast] });
+            } else if (this.state.dialogAction === Action.DELETE) {
+                console.log("Deleting podcast", podcast);
+                this.setState({
+                    rows: this.state.rows.filter((row) => row.id !== podcast.id),
+                });
+            } else if (this.state.dialogAction === Action.EDIT) {
+                console.log("Editing podcast", podcast);
+                console.log(` podcast: ${podcast.id}`);
+                this.setState({
+                    rows: this.state.rows.map((row) =>
+                        row.id === podcast.id ? podcast : row
+                    ),
+                });
             }
-        } catch (error) {
-            console.error('Error:', error);
         }
+        this.setState({ dialogOpen: false });
     };
 
-    handleRowModesModelChange = (newRowModesModel: GridRowModesModel) => {
-        this.setState({ rowModesModel: newRowModesModel });
+    render = () => {
+        console.log("Rendering dyptichs_page");
+        if (this.state.isLoading) {
+            return (
+                <>
+                    <Box sx={{ height: "100px" }} />
+                    <Paper sx={{ width: "100%", p: 2 }}>
+                        <h1>Elements</h1>
+                        <div>Loading...</div>
+                    </Paper>
+                </>
+            );
+        }
+        console.log(`Dialog is open ${this.state.dialogOpen}`);
+        console.log("Estado de podcast:", this.state.podcast);
+        return (
+            <>
+                <Box style={{ height: 100 }} />
+                { this.state.dialogOpen === true && (
+                <PodcastDialog
+                    dialogOpen={this.state.dialogOpen}
+                    handleClose={this.handleClose}
+                    action={this.state.dialogAction}
+                    podcast={this.state.podcast}
+                />)}
+                <Stack spacing={2}>
+                    <Card variant="outlined">
+                        <CardHeader title="Podcasts" />
+                        <CardContent>
+                            <Card
+                                sx={{
+                                    p: 2,
+                                    display: "flex",
+                                    gap: "20px",
+                                    flexWrap: "wrap",
+                                    margin: "auto",
+                                }}
+                            >
+                                <SimpleTable
+                                    onAdd={this.onAdd.bind(this)}
+                                    onEdit={this.onEdit.bind(this)}
+                                    onDelete={this.onDelete.bind(this)}
+                                    columns={this.state.columns}
+                                    rows={this.state.rows}
+                                />
+                            </Card>
+                        </CardContent>
+                    </Card>
+                </Stack>
+            </>
+        );
     };
-
-    handleCloseSnackbar = () => {
-        this.setState({ snackbar: null });
-    }
-
-    handleSnackbar = (severity: AlertProps['severity'], message: AlertProps['children']) => {
-        this.setState({ snackbar: { severity: severity, children: message } });
-    }
 }

@@ -4,8 +4,9 @@ use rss::{
     ImageBuilder,
     CategoryBuilder,
     Item,
-    extension::itunes::ITunesChannelExtensionBuilder
+    extension::itunes::ITunesChannelExtensionBuilder,
 };
+use std::collections::BTreeMap;
 use super::Error;
 use tracing::debug;
 use sqlx::sqlite::SqlitePool;
@@ -91,6 +92,19 @@ impl Feed {
             .rating(Some(self.rating.clone()))
             .description(self.description.clone())
             .build();
+        channel.namespaces = BTreeMap::new();
+        let mut namespaces = BTreeMap::new();
+        namespaces.insert("content".to_string(), "http://purl.org/rss/1.0/modules/content/".to_string());
+        namespaces.insert("wfw".to_string(), "http://wellformedweb.org/CommentAPI/".to_string());
+        namespaces.insert("itunes".to_string(), "http://www.itunes.com/dtds/podcast-1.0.dtd".to_string());
+        namespaces.insert("dc".to_string(), "http://purl.org/dc/elements/1.1/".to_string());
+        namespaces.insert("media".to_string(), "http://search.yahoo.com/mrss/".to_string());
+        namespaces.insert("atom".to_string(), "http://www.w3.org/2005/Atom".to_string());
+        namespaces.insert("feedpress".to_string(), "https://feed.press/xmlns".to_string());
+        namespaces.insert("podcast".to_string(), "https://podcastindex.org/namespace/1.0".to_string());
+        namespaces.insert("googleplay".to_string(), "http://www.google.com/schemas/play-podcasts/1.0".to_string());
+        namespaces.insert("podcast".to_string(), "https://podcastindex.org/namespace/1.0".to_string());
+        channel.namespaces = namespaces;
         channel.set_itunes_ext(itunes);
         channel.set_items(episodes);
         channel.pretty_write_to(std::io::sink(), b' ', 4)?;

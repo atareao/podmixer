@@ -201,12 +201,13 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
             Err(e) => error!("Error doing the work: {}", e),
         }
     }
-    if generate {
+    let dothis = false;
+    if !dothis {
         info!("Init telegram");
         let telegram = Telegram::get(pool).await?;
         info!("Init twitter");
         let mut twitter = Twitter::get(pool).await?;
-        if twitter.is_active(){
+        if twitter.is_active() && dothis{
             debug!("What before access_token: {}", twitter.get_access_token());
             debug!("What before refresh_token: {}", twitter.get_refresh_token());
             debug!("Update twitter");
@@ -238,7 +239,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                     5000).unwrap_or("".to_string()),
                 link => episode.link().unwrap(),
             );
-            if telegram.is_active(){
+            if telegram.is_active() && dothis {
                 info!("Trying to populate in Telegram: {}", episode.title().unwrap());
                 let template = Param::get(pool, "telegram_template")
                     .await
@@ -258,7 +259,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
                     },
                 }
             }
-            if twitter.is_active(){
+            if twitter.is_active() && dothis{
                 info!("Trying to populate in Twitter: {}", episode.title().unwrap());
                 let template = Param::get(pool, "twitter_template")
                     .await
@@ -282,6 +283,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
         all_episodes.sort_by(item_comparator);
         older_than_episodes.sort_by(item_comparator);
         //Make short feed
+        debug!("Make short feed");
         match feed.rss(older_than_episodes){
             Ok(short_feed) => {
                 //debug!("{}", &short_feed);
@@ -293,6 +295,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
             Err(e) => error!("{:?}", e),
         };
         //Make long feed
+        debug!("Make long feed");
         match feed.rss(all_episodes){
             Ok(long_feed) => {
                 //debug!("{}", &long_feed);
@@ -359,7 +362,7 @@ async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> 
 pub fn item_comparator(a: &Item, b: &Item) -> std::cmp::Ordering {
     let date_a = get_pub_date_timestamp(a);
     let date_b = get_pub_date_timestamp(b);
-    date_a.cmp(&date_b)
+    date_b.cmp(&date_a)
 }
 
 pub fn get_pub_date_timestamp(item: &Item) -> i64{

@@ -45,6 +45,7 @@ ENV USER=app \
     UID=1000
 
 RUN apk add --update --no-cache \
+            curl~=8.14 \
             sqlite~=3.49 && \
     rm -rf /var/cache/apk && \
     rm -rf /var/lib/app/lists && \

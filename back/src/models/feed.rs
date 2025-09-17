@@ -4,7 +4,11 @@ use rss::{
     ImageBuilder,
     CategoryBuilder,
     Item,
-    extension::itunes::ITunesChannelExtensionBuilder,
+    extension::itunes::{
+        ITunesChannelExtensionBuilder,
+        ITunesCategoryBuilder,
+        ITunesOwnerBuilder,
+    },
 };
 use std::collections::BTreeMap;
 use super::Error;
@@ -77,12 +81,24 @@ impl Feed {
     pub fn rss(&self, episodes: Vec<Item>) -> Result<String, Error>{
         let image = ImageBuilder::default()
             .url(&self.image_url)
+            .title(self.title.clone())
+            .link(&self.link)
             .build();
         let category = CategoryBuilder::default()
             .name(&self.category)
             .build();
+        let itunes_category = ITunesCategoryBuilder::default()
+            .text(&self.category)
+            .build();
+        let itunes_owner = ITunesOwnerBuilder::default()
+            .name(self.author.clone())
+            .build();
         let itunes = ITunesChannelExtensionBuilder::default()
+            .category(itunes_category)
+            .keywords(Some(self.keywords.clone()))
+            .explicit(Some(if self.explicit { "yes".to_string() } else { "no".to_string() }))
             .author(Some(self.author.clone()))
+            .owner(Some(itunes_owner))
             .build();
         let mut channel = ChannelBuilder::default()
             .title(&self.title)
@@ -90,6 +106,8 @@ impl Feed {
             .image(Some(image))
             .category(category)
             .rating(Some(self.rating.clone()))
+            .language(Some("es".to_string()))
+            .generator(Some("Podmixer".to_string()))
             .description(self.description.clone())
             .build();
         channel.namespaces = BTreeMap::new();

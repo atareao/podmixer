@@ -19,6 +19,8 @@ use crate::models::Param;
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Feed{
     pub title: String,
+    pub subtitle: String,
+    pub summary: String,
     pub link: String,
     pub image_url: String,
     pub category: String,
@@ -27,15 +29,20 @@ pub struct Feed{
     pub author: String,
     pub explicit: bool,
     pub keywords: String,
+    pub owner_name: String,
+    pub owner_email: String,
 }
 
 impl Feed {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(title: String, link: String, image_url: String,
-               category: String, rating: String, description: String,
-               author: String, explicit: bool, keywords: String) -> Self{
+    pub fn new(title: String, subtitle: String, summary: String, link: String,
+               image_url: String, category: String, rating: String,
+               description: String, author: String, explicit: bool,
+               keywords: String, owner_name: String, owner_email: String) -> Self{
         Self{
             title,
+            subtitle,
+            summary,
             link,
             image_url,
             category,
@@ -44,12 +51,16 @@ impl Feed {
             author,
             explicit,
             keywords,
+            owner_name,
+            owner_email,
         }
     }
 
     pub async fn get(pool: &SqlitePool) -> Result<Feed, Error> {
         debug!("get_feed");
         let feed_title = Param::get(pool, "feed_title").await?;
+        let feed_subtitle = Param::get(pool, "feed_subtitle").await?;
+        let feed_summary = Param::get(pool, "feed_summary").await?;
         let feed_link = Param::get(pool, "feed_link").await?;
         let feed_image_url = Param::get(pool, "feed_image_url").await?;
         let feed_category = Param::get(pool, "feed_category").await?;
@@ -59,14 +70,19 @@ impl Feed {
         let feed_explicit_str = Param::get(pool, "feed_explicit").await?;
         let feed_explicit = feed_explicit_str == "TRUE";
         let feed_keywords = Param::get(pool, "feed_keywords").await?;
-        Ok(Feed::new(feed_title, feed_link, feed_image_url, feed_category,
-            feed_rating, feed_description, feed_author, feed_explicit,
-            feed_keywords))
+        let feed_owner_name = Param::get(pool, "feed_owner_name").await?;
+        let feed_owner_email = Param::get(pool, "feed_owner_email").await?;
+        Ok(Feed::new(feed_title, feed_subtitle, feed_summary, feed_link,
+            feed_image_url, feed_category, feed_rating, feed_description,
+            feed_author, feed_explicit, feed_keywords, feed_owner_name,
+            feed_owner_email))
     }
 
     pub async fn set(pool: &SqlitePool, feed: &Feed) -> Result<Feed, Error> {
         debug!("save_feed");
         Param::set(pool, "feed_title", &feed.title).await?;
+        Param::set(pool, "feed_subtitle", &feed.subtitle).await?;
+        Param::set(pool, "feed_summary", &feed.summary).await?;
         Param::set(pool, "feed_link", &feed.link).await?;
         Param::set(pool, "feed_image_url", &feed.image_url).await?;
         Param::set(pool, "feed_category", &feed.category).await?;
@@ -75,6 +91,8 @@ impl Feed {
         Param::set(pool, "feed_author", &feed.author).await?;
         Param::set(pool, "feed_explicit", &feed.explicit.to_string().to_uppercase()).await?;
         Param::set(pool, "feed_keywords", &feed.keywords).await?;
+        Param::set(pool, "feed_owner_name", &feed.owner_name).await?;
+        Param::set(pool, "feed_owner_email", &feed.owner_email).await?;
         Self::get(pool).await
     }
 
@@ -91,9 +109,12 @@ impl Feed {
             .text(&self.category)
             .build();
         let itunes_owner = ITunesOwnerBuilder::default()
-            .name(self.author.clone())
+            .name(self.owner_name.clone())
+            .email(self.owner_email.clone())
             .build();
         let itunes = ITunesChannelExtensionBuilder::default()
+            .subtitle(Some(self.subtitle.clone()))
+            .summary(Some(self.summary.clone()))
             .category(itunes_category)
             .keywords(Some(self.keywords.clone()))
             .explicit(Some(if self.explicit { "yes".to_string() } else { "no".to_string() }))

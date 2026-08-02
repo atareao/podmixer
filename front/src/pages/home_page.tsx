@@ -41,6 +41,18 @@ export default class HomePage extends react.Component {
                         </CardActions>
                     </Card>
                     <Card variant="outlined">
+                        <CardHeader title="Publishers" />
+                        <CardContent>
+                            <p>Gestiona las redes sociales donde se publican los episodios.</p>
+                            <p>Configura Telegram, X, Mastodon y Matrix.</p>
+                        </CardContent>
+                        <CardActions disableSpacing>
+                            <IconButton href="/publishers" >
+                                <LaunchIcon />
+                            </IconButton>
+                        </CardActions>
+                    </Card>
+                    <Card variant="outlined">
                         <CardHeader title="Acerca de" />
                         <CardContent>
                             <p>Este es el acerca de</p>

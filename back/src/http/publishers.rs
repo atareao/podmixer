@@ -56,8 +56,8 @@ pub fn publishers_router() -> Router<Arc<AppState>> {
         .route("/{id}/test", routing::post(test_publisher))
         .route("/logs", routing::get(get_logs))
         .route("/logs/stream", routing::get(stream_logs))
-        .route("/oauth/authorize/{id}", routing::post(oauth_authorize))
-        .route("/oauth/callback/{id}", routing::post(oauth_callback))
+        .route("/{id}/oauth/authorize", routing::post(oauth_authorize))
+        .route("/{id}/oauth/callback", routing::post(oauth_callback))
         .route("/oauth/callback", routing::get(oauth_callback_get))
 }
 

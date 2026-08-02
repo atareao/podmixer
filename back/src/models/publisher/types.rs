@@ -34,13 +34,16 @@ impl PublisherType {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Publisher {
+    #[serde(default)]
     pub id: String,
     pub name: String,
     pub publisher_type: PublisherType,
     pub config: serde_json::Value,
     pub template: String,
     pub active: bool,
+    #[serde(default)]
     pub created_at: String,
+    #[serde(default)]
     pub updated_at: String,
 }
 

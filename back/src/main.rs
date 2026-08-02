@@ -124,9 +124,13 @@ async fn main() -> Result<(), Error> {
 
     let pool2 = pool.clone();
     let sse2 = sse_broadcaster.clone();
+    let dry_run = std::env::var("PUBLISHER_DRY_RUN")
+        .ok()
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
     tokio::spawn(async move {
         loop {
-            match do_the_work(&pool2, older_than, &sse2).await {
+            match do_the_work(&pool2, older_than, &sse2, dry_run).await {
                 Ok(_) => {}
                 Err(error) => {
                     error!("do_the_work error: {error}");
@@ -147,7 +151,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBroadcaster) -> Result<(), Error> {
+async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBroadcaster, dry_run: bool) -> Result<(), Error> {
     debug!("Init feed");
     let feed = Feed::get(pool).await?;
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -208,7 +212,7 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBr
                 "Publishing episode: {}",
                 title
             );
-            publish_episode(pool, sse_broadcaster, title, &description, url).await;
+            publish_episode(pool, sse_broadcaster, title, &description, url, dry_run).await;
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
         // Sort episodes
@@ -264,6 +268,7 @@ async fn publish_episode(
     title: &str,
     description: &str,
     url: &str,
+    dry_run: bool,
 ) {
     let manager = PublisherManager::new(pool.clone());
     let publishers = match manager.get_publishers_db().await {
@@ -276,15 +281,6 @@ async fn publish_episode(
 
     for publisher in publishers {
         let ptype = publisher.publisher_type.clone();
-        let impl_instance = create_publisher_impl(&publisher.id, &ptype, &publisher.config);
-        let impl_instance = match impl_instance {
-            Some(instance) => instance,
-            None => {
-                error!("Invalid config for publisher {}", publisher.name);
-                continue;
-            }
-        };
-
         let ctx = TemplateContext {
             title: title.to_string(),
             description: description.to_string(),
@@ -303,6 +299,32 @@ async fn publish_episode(
             created_at: String::new(),
         };
         let _ = manager.add_log(&log).await;
+
+        if dry_run {
+            info!("[DRY-RUN] Would publish to {}: {}", publisher.name, title);
+            let dry_log = PublishLog {
+                id: log_id,
+                publisher_id: publisher.id,
+                publisher_name: publisher.name,
+                publisher_type: publisher.publisher_type.as_str().to_string(),
+                episode_title: title.to_string(),
+                status: "dry-run".to_string(),
+                message: "Dry-run: publicación simulada".to_string(),
+                created_at: String::new(),
+            };
+            let _ = manager.add_log(&dry_log).await;
+            sse_broadcaster.broadcast(&dry_log);
+            continue;
+        }
+
+        let impl_instance = create_publisher_impl(&publisher.id, &ptype, &publisher.config);
+        let impl_instance = match impl_instance {
+            Some(instance) => instance,
+            None => {
+                error!("Invalid config for publisher {}", publisher.name);
+                continue;
+            }
+        };
 
         match impl_instance.publish(&ctx.title, &ctx.description, &ctx.url).await {
             Ok(response) => {

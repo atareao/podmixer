@@ -8,13 +8,13 @@ list:
 
 dev:
     cd front && pnpm i && pnpm run build && rm -rf ../back/static && mkdir ../back/static && cp -r ./dist/* ../back/static
-    cd back && RUST_LOG=debug cargo run
+    cd back && RUST_LOG=debug PUBLISHER_DRY_RUN=true cargo run
 
 front:
     cd front && pnpm run dev
 
 back:
-    cd back && RUST_LOG=debug cargo run
+    cd back && RUST_LOG=debug PUBLISHER_DRY_RUN=true cargo run
 
 build:
     @docker build \

@@ -52,6 +52,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             client_secret: config.client_secret || '',
             access_token: config.access_token || '',
             refresh_token: config.refresh_token || '',
+            redirect_uri: config.redirect_uri || '',
             server_url: config.server_url || '',
             access_token_mastodon: config.access_token_mastodon || '',
             homeserver_url: config.homeserver_url || '',
@@ -72,12 +73,14 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                 return [
                     { key: 'client_id', label: 'Client ID' },
                     { key: 'client_secret', label: 'Client Secret' },
+                    { key: 'redirect_uri', label: 'Redirect URI' },
                     { key: 'access_token', label: 'Access Token' },
                     { key: 'refresh_token', label: 'Refresh Token' },
                 ];
             case 'mastodon':
                 return [
                     { key: 'server_url', label: 'Server URL' },
+                    { key: 'redirect_uri', label: 'Redirect URI' },
                     { key: 'access_token_mastodon', label: 'Access Token' },
                 ];
             case 'matrix':
@@ -175,6 +178,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                             onChange={(e) => this.setState({
                                 config: { ...this.state.config, [field.key]: e.target.value }
                             })}
+                            helperText={field.key === 'redirect_uri' ? 'URL que configuras en X/Mastodon para el callback OAuth' : undefined}
                         />
                     </Grid>
                 ))}

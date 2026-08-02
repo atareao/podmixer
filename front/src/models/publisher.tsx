@@ -17,6 +17,7 @@ export interface PublisherConfig {
     client_secret?: string;
     access_token?: string;
     refresh_token?: string;
+    redirect_uri?: string;
     server_url?: string;
     access_token_mastodon?: string;
     homeserver_url?: string;

@@ -58,7 +58,6 @@ pub fn publishers_router() -> Router<Arc<AppState>> {
         .route("/logs/stream", routing::get(stream_logs))
         .route("/{id}/oauth/authorize", routing::post(oauth_authorize))
         .route("/{id}/oauth/callback", routing::post(oauth_callback))
-        .route("/oauth/callback", routing::get(oauth_callback_get))
 }
 
 pub async fn list_publishers(State(app_state): State<Arc<AppState>>) -> impl IntoResponse {

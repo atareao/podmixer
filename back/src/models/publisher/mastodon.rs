@@ -33,7 +33,7 @@ impl MastodonPublisher {
             redirect_uri: config
                 .get("redirect_uri")
                 .and_then(|v| v.as_str())
-                .unwrap_or("http://localhost:3000/api/v1/publishers/oauth/callback")
+                .unwrap_or("http://localhost:3000/api/v1/oauth/callback")
                 .to_string(),
         })
     }

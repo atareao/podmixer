@@ -10,7 +10,7 @@ use axum::{
 };
 use chrono::DateTime;
 use html2text::from_read;
-use http::{config_router, health_router, podcast_router, publishers_router, user_router};
+use http::{config_router, health_router, oauth_callback_get, podcast_router, publishers_router, user_router};
 use models::{
     publisher::{
         manager::{create_publisher_impl, PublisherManager},
@@ -91,6 +91,7 @@ async fn main() -> Result<(), Error> {
     let sse_broadcaster = SseBroadcaster::new();
 
     let api_routes = Router::new()
+        .route("/oauth/callback", axum::routing::get(oauth_callback_get))
         .nest("/health", health_router())
         .nest("/auth", user_router())
         .nest("/podcasts", podcast_router())

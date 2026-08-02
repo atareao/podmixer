@@ -2,68 +2,36 @@ mod http;
 mod models;
 
 use axum::{
-    Router,
     http::{
-        header::{
-            ACCEPT,
-            AUTHORIZATION,
-            CONTENT_TYPE
-        },
+        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
         Method,
     },
+    Router,
 };
-use tower_http::{
-    trace::TraceLayer,
-    cors::{
-        CorsLayer,
-        Any,
-    },
-};
-use std::{
-    time::Duration,
-    sync::Arc,
-    str::FromStr,
-    env::var,
-    path::Path,
-};
-use sqlx::{
-    sqlite::{
-        SqlitePoolOptions,
-        SqlitePool,
-    },
-    migrate::{
-        Migrator,
-        MigrateDatabase
-    },
-};
-use tracing_subscriber::{
-    EnvFilter,
-    layer::SubscriberExt,
-    util::SubscriberInitExt
-};
-use tower_http::services::{ServeDir, ServeFile};
-use tracing::{info, error, debug};
 use chrono::DateTime;
-use rss::Item;
-use minijinja::{Environment, context, Value};
 use html2text::from_read;
-use http::{
-    health_router,
-    user_router,
-    podcast_router,
-    config_router,
-};
+use http::{config_router, health_router, podcast_router, publishers_router, user_router};
 use models::{
-    util,
-    AppState,
-    Error,
-    Param,
-    Telegram,
-    Twitter,
-    Feed,
-    Podcast,
-    CompletePodcast,
+    publisher::{
+        manager::{create_publisher_impl, PublisherManager},
+        template::TemplateContext,
+        types::PublishLog,
+    },
+    AppState, CompletePodcast, Error, Feed, Podcast, SseBroadcaster,
 };
+use rss::Item;
+use sqlx::{
+    migrate::{MigrateDatabase, Migrator},
+    sqlite::{SqlitePool, SqlitePoolOptions},
+};
+use std::{env::var, path::Path, str::FromStr, sync::Arc, time::Duration};
+use tower_http::services::{ServeDir, ServeFile};
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing::{debug, error, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -78,19 +46,29 @@ async fn main() -> Result<(), Error> {
     let port = var("PORT").unwrap_or("3000".to_string());
     info!("Port: {}", port);
     let secret = var("SECRET").unwrap_or("esto-es-un-secreto".to_string());
-    let sleep_time: u64 = var("SLEEP_TIME").unwrap_or("900".to_string()).parse().unwrap();
+    let sleep_time: u64 = var("SLEEP_TIME")
+        .unwrap_or("900".to_string())
+        .parse()
+        .unwrap();
     info!("Sleep time: {}", sleep_time);
-    let older_than: i32 = var("OLDER_THAN").unwrap_or("30".to_string()).parse().unwrap();
+    let older_than: i32 = var("OLDER_THAN")
+        .unwrap_or("30".to_string())
+        .parse()
+        .unwrap();
     info!("Older than: {}", older_than);
 
-    if !sqlx::Sqlite::database_exists(&db_url).await.unwrap(){
+    if !sqlx::Sqlite::database_exists(&db_url).await.unwrap() {
         sqlx::Sqlite::create_database(&db_url).await.unwrap();
     }
 
-    let migrations = if var("RUST_ENV") == Ok("production".to_string()){
+    let migrations = if var("RUST_ENV") == Ok("production".to_string()) {
         info!("Working on production");
-        std::env::current_exe().unwrap().parent().unwrap().join("migrations")
-    }else{
+        std::env::current_exe()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("migrations")
+    } else {
         info!("Working on development");
         let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
         Path::new(&crate_dir).join("migrations")
@@ -110,21 +88,30 @@ async fn main() -> Result<(), Error> {
         .await
         .unwrap();
 
+    let sse_broadcaster = SseBroadcaster::new();
+
     let api_routes = Router::new()
         .nest("/health", health_router())
         .nest("/auth", user_router())
         .nest("/podcasts", podcast_router())
         .nest("/config", config_router())
+        .nest("/publishers", publishers_router())
         .with_state(Arc::new(AppState {
             pool: pool.clone(),
             secret,
-    }));
+            sse_broadcaster: sse_broadcaster.clone(),
+        }));
 
     let cors = CorsLayer::new()
         //.allow_origin(url.parse::<HeaderValue>().unwrap())
         .allow_origin(Any)
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH,
-            Method::DELETE])
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+        ])
         //.allow_credentials(true)
         .allow_headers([AUTHORIZATION, ACCEPT, CONTENT_TYPE]);
 
@@ -136,18 +123,19 @@ async fn main() -> Result<(), Error> {
         .layer(cors);
 
     let pool2 = pool.clone();
+    let sse2 = sse_broadcaster.clone();
     tokio::spawn(async move {
         loop {
-            match do_the_work(&pool2, older_than).await{
-                Ok(_) => {},
+            match do_the_work(&pool2, older_than, &sse2).await {
+                Ok(_) => {}
                 Err(error) => {
                     error!("do_the_work error: {error}");
                     let mut next_err = error.source();
-                    while next_err.is_some(){
+                    while next_err.is_some() {
                         error!("caused by: {:#}", next_err.unwrap());
                         next_err = next_err.unwrap().source();
                     }
-                },
+                }
             }
             tokio::time::sleep(Duration::from_secs(sleep_time)).await;
         }
@@ -159,7 +147,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
+async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBroadcaster) -> Result<(), Error> {
     debug!("Init feed");
     let feed = Feed::get(pool).await?;
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -167,115 +155,60 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
     let mut all_episodes: Vec<Item> = Vec::new();
     let mut podcasts = Podcast::get(pool).await?;
     let mut generate = false;
-    for podcast in podcasts.as_mut_slice(){
-        match CompletePodcast::new(podcast).await{
+    for podcast in podcasts.as_mut_slice() {
+        match CompletePodcast::new(podcast).await {
             Ok(complete) => {
-                match complete.get_new(){
+                match complete.get_new() {
                     Ok(news) => {
                         info!("Get episodes for: {}. News: {}", &podcast.name, news.len());
                         new_episodes.extend_from_slice(news.as_slice());
-                        if !news.is_empty(){
+                        if !news.is_empty() {
                             generate = true;
                             let first = news.first().unwrap();
                             info!("{}", first.pub_date().unwrap());
-                            if let Ok(pub_date) = DateTime::parse_from_rfc2822(first.pub_date().unwrap()){
+                            if let Ok(pub_date) =
+                                DateTime::parse_from_rfc2822(first.pub_date().unwrap())
+                            {
                                 podcast.last_pub_date = pub_date.to_utc();
-                            }else if let Ok(pub_date) = DateTime::parse_from_str(first.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S") {
+                            } else if let Ok(pub_date) = DateTime::parse_from_str(
+                                first.pub_date().unwrap(),
+                                "%a, %d %b %Y %H:%M:%S",
+                            ) {
                                 podcast.last_pub_date = pub_date.to_utc();
                             }
-                            match futures::executor::block_on(Podcast::update(pool, podcast)){
+                            match futures::executor::block_on(Podcast::update(pool, podcast)) {
                                 Ok(response) => debug!("{:?}", response),
                                 Err(e) => error!("{:?}", e),
                             };
                         }
-                    },
+                    }
                     Err(e) => error!("Error doing the work: {}", e),
                 };
-                match complete.get_older_than_days(older_than){
+                match complete.get_older_than_days(older_than) {
                     Ok(older) => older_than_episodes.extend_from_slice(older.as_slice()),
                     Err(e) => error!("Error doing the work: {}", e),
                 };
                 let all = complete.get_all();
                 all_episodes.extend_from_slice(all.as_slice());
-            },
+            }
             Err(e) => error!("Error doing the work: {}", e),
         }
     }
     if generate {
-        info!("Init telegram");
-        let telegram = Telegram::get(pool).await?;
-        info!("Init twitter");
-        let mut twitter = Twitter::get(pool).await?;
-        if twitter.is_active() {
-            debug!("What before access_token: {}", twitter.get_access_token());
-            debug!("What before refresh_token: {}", twitter.get_refresh_token());
-            debug!("Update twitter");
-            if twitter.update_access_token().await.is_ok(){
-                let twitter_access_token = twitter.get_access_token();
-                debug!("Access token: {twitter_access_token}");
-                match Param::set(pool, "twitter_access_token", twitter_access_token).await{
-                    Ok(response) => debug!("{:?}", response),
-                    Err(e) => error!("{:?}", e),
-                };
-                let twitter_refresh_token = twitter.get_refresh_token();
-                debug!("Refresh token: {twitter_refresh_token}");
-                match Param::set(pool, "twitter_refresh_token", twitter_refresh_token).await{
-                    Ok(response) => debug!("{:?}", response),
-                    Err(e) => error!("{:?}", e),
-                };
-            }else{
-                error!("Someting goes wrong");
-            }
-            debug!("What after access_token: {}", twitter.get_access_token());
-            debug!("What after refresh_token: {}", twitter.get_refresh_token());
-        }
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
-        for episode in new_episodes.as_slice(){
-            let ctx = context!(
-                title => episode.title().unwrap_or(""),
-                description => from_read(
-                    episode.description().unwrap_or("").as_bytes(),
-                    5000).unwrap_or("".to_string()),
-                link => episode.link().unwrap(),
+        for episode in new_episodes.as_slice() {
+            let title = episode.title().unwrap_or("");
+            let description = from_read(
+                episode.description().unwrap_or("").as_bytes(),
+                5000,
+            )
+            .unwrap_or_else(|_| "".to_string());
+            let url = episode.link().unwrap_or("");
+            info!(
+                "Publishing episode: {}",
+                title
             );
-            if telegram.is_active() {
-                info!("Trying to populate in Telegram: {}", episode.title().unwrap());
-                let template = Param::get(pool, "telegram_template")
-                    .await
-                    .unwrap();
-                match populate_in_telegram(&ctx, &template, &telegram, episode).await{
-                    Ok(_) => {
-                        info!("Populated in Telegram: {}", episode.title().unwrap());
-                    },
-                    Err(error) => {
-                        error!("Could NOT populate in Telegram: {error}");
-                        let mut next_error = error.source();
-                        // render causes as well
-                        while next_error.is_some(){
-                            error!("caused by: {:#}", next_error.unwrap());
-                            next_error = next_error.unwrap().source();
-                        }
-                    },
-                }
-            }
-            if twitter.is_active() {
-                info!("Trying to populate in Twitter: {}", episode.title().unwrap());
-                let template = Param::get(pool, "twitter_template")
-                    .await
-                    .unwrap();
-                match populate_in_twitter(&ctx, &template, &twitter).await{
-                    Ok(_) => info!("Populated in Twitter: {}", episode.title().unwrap()),
-                    Err(error) => {
-                        error!("Could NOT populate in Twitter: {error}");
-                        let mut next_error = error.source();
-                        // render causes as well
-                        while next_error.is_some(){
-                            error!("caused by: {:#}", next_error.unwrap());
-                            next_error = next_error.unwrap().source();
-                        }
-                    },
-                }
-            }
+            publish_episode(pool, sse_broadcaster, title, &description, url).await;
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
         // Sort episodes
@@ -283,26 +216,26 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32) -> Result<(), Error>{
         older_than_episodes.sort_by(item_comparator);
         //Make short feed
         debug!("Make short feed");
-        match feed.rss(older_than_episodes){
+        match feed.rss(older_than_episodes) {
             Ok(short_feed) => {
                 //debug!("{}", &short_feed);
-                match std::fs::write("rss/short.xml", short_feed.as_bytes()){
+                match std::fs::write("rss/short.xml", short_feed.as_bytes()) {
                     Ok(response) => debug!("{:?}", response),
                     Err(e) => error!("{:?}", e),
                 };
-            },
+            }
             Err(e) => error!("{:?}", e),
         };
         //Make long feed
         debug!("Make long feed");
-        match feed.rss(all_episodes){
+        match feed.rss(all_episodes) {
             Ok(long_feed) => {
                 //debug!("{}", &long_feed);
-                match std::fs::write("rss/long.xml", long_feed.as_bytes()){
+                match std::fs::write("rss/long.xml", long_feed.as_bytes()) {
                     Ok(response) => debug!("{:?}", response),
                     Err(e) => error!("{:?}", e),
                 };
-            },
+            }
             Err(e) => error!("{:?}", e),
         };
     }
@@ -325,37 +258,87 @@ fn truncate2(value: String, length: usize) -> String {
     cloned
 }
 
-async fn populate_in_telegram(ctx: &Value, template: &str, telegram: &Telegram, episode: &Item) -> Result<(), Error>{
-    let mut env = Environment::new();
-    env.add_filter("truncate", truncate);
-    env.add_template("telegram", template)?;
-    let tmpl = env.get_template("telegram")?;
-    let url = episode.enclosure().ok_or("Not enclosure")?.url();
-    let name = util::normalize(episode.title().ok_or("Not title")?)?;
-    let ext = util::get_extension_from_filename(url).ok_or("Not extension")?;
-    let filename = format!("{name}.{ext}");
-    let filepath = format!("/tmp/{filename}");
-    util::fetch_url(url, &filepath).await?;
-    let message = tmpl.render(ctx)?;
-    telegram.send_audio(&filename, &filepath, &message).await?;
-    tokio::fs::remove_file(filepath).await?;
-    Ok(())
-}
+async fn publish_episode(
+    pool: &SqlitePool,
+    sse_broadcaster: &SseBroadcaster,
+    title: &str,
+    description: &str,
+    url: &str,
+) {
+    let manager = PublisherManager::new(pool.clone());
+    let publishers = match manager.get_publishers_db().await {
+        Ok(p) => p.into_iter().filter(|p| p.active).collect::<Vec<_>>(),
+        Err(e) => {
+            error!("Error loading publishers: {:?}", e);
+            return;
+        }
+    };
 
-async fn populate_in_twitter(ctx: &Value, template: &str, twitter: &Twitter) -> Result<(), Error>{
-    debug!("populate_in_twitter");
-    let mut env = Environment::new();
-    env.add_filter("truncate", truncate);
-    env.add_template("twitter", template)?;
-    let tmpl = env.get_template("twitter")?;
-    debug!("Template: {template}");
-    debug!("Context: {:?}", ctx);
-    debug!("Env: {:?}", env);
-    debug!("tmpl: {:?}", &tmpl);
-    let message = tmpl.render(ctx)?;
-    debug!("message: {message}");
-    twitter.post(&message).await?;
-    Ok(())
+    for publisher in publishers {
+        let ptype = publisher.publisher_type.clone();
+        let impl_instance = create_publisher_impl(&publisher.id, &ptype, &publisher.config);
+        let impl_instance = match impl_instance {
+            Some(instance) => instance,
+            None => {
+                error!("Invalid config for publisher {}", publisher.name);
+                continue;
+            }
+        };
+
+        let ctx = TemplateContext {
+            title: title.to_string(),
+            description: description.to_string(),
+            url: url.to_string(),
+        };
+
+        let log_id = uuid::Uuid::new_v4().to_string();
+        let log = PublishLog {
+            id: log_id.clone(),
+            publisher_id: publisher.id.clone(),
+            publisher_name: publisher.name.clone(),
+            publisher_type: publisher.publisher_type.as_str().to_string(),
+            episode_title: title.to_string(),
+            status: "sending".to_string(),
+            message: String::new(),
+            created_at: String::new(),
+        };
+        let _ = manager.add_log(&log).await;
+
+        match impl_instance.publish(&ctx.title, &ctx.description, &ctx.url).await {
+            Ok(response) => {
+                info!("Published to {}: {}", publisher.name, response);
+                let success_log = PublishLog {
+                    id: log_id,
+                    publisher_id: publisher.id,
+                    publisher_name: publisher.name,
+                    publisher_type: publisher.publisher_type.as_str().to_string(),
+                    episode_title: title.to_string(),
+                    status: "success".to_string(),
+                    message: "Published successfully".to_string(),
+                    created_at: String::new(),
+                };
+                let _ = manager.add_log(&success_log).await;
+                sse_broadcaster.broadcast(&success_log);
+            }
+            Err(e) => {
+                let err_msg = format!("{}", e);
+                error!("Error publishing to {}: {}", publisher.name, err_msg);
+                drop(e);
+                let error_log = PublishLog {
+                    id: log_id,
+                    publisher_id: publisher.id,
+                    publisher_name: publisher.name,
+                    publisher_type: publisher.publisher_type.as_str().to_string(),
+                    episode_title: title.to_string(),
+                    status: "error".to_string(),
+                    message: err_msg,
+                    created_at: String::new(),
+                };
+                let _ = manager.add_log(&error_log).await;
+                sse_broadcaster.broadcast(&error_log);
+            }
+        }
+    }
 }
 
 pub fn item_comparator(a: &Item, b: &Item) -> std::cmp::Ordering {
@@ -364,15 +347,16 @@ pub fn item_comparator(a: &Item, b: &Item) -> std::cmp::Ordering {
     date_b.cmp(&date_a)
 }
 
-pub fn get_pub_date_timestamp(item: &Item) -> i64{
-    if let Ok(pub_date) = DateTime::parse_from_rfc2822(item.pub_date().unwrap()){
+pub fn get_pub_date_timestamp(item: &Item) -> i64 {
+    if let Ok(pub_date) = DateTime::parse_from_rfc2822(item.pub_date().unwrap()) {
         pub_date.timestamp()
-    }else if let Ok(pub_date) = DateTime::parse_from_str(item.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S") {
+    } else if let Ok(pub_date) =
+        DateTime::parse_from_str(item.pub_date().unwrap(), "%a, %d %b %Y %H:%M:%S")
+    {
         pub_date.timestamp()
-    }else {
+    } else {
         0
     }
-
 }
 
 #[cfg(test)]
@@ -434,7 +418,6 @@ mod tests {
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());
-
     }
     #[test]
     fn convert_2() {
@@ -442,7 +425,6 @@ mod tests {
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());
-
     }
     #[test]
     fn convert_3() {
@@ -450,7 +432,6 @@ mod tests {
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());
-
     }
     #[test]
     fn convert_4() {
@@ -458,6 +439,5 @@ mod tests {
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());
-
     }
 }

@@ -1,11 +1,8 @@
 use axum::{
-    http::StatusCode,
-    Json,
     body::Body,
-    response::{
-        Response,
-        IntoResponse,
-    }
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Json,
 };
 use serde::Serialize;
 
@@ -41,4 +38,3 @@ impl IntoResponse for ApiResponse {
             .unwrap()
     }
 }
-

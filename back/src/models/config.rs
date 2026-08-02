@@ -1,12 +1,15 @@
-use serde::{Serialize, Deserialize};
-use sqlx::{sqlite::{SqlitePool, SqliteRow}, query, Row};
-use chrono::{DateTime, Utc};
-use tracing::debug;
 use super::Error;
-
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::{
+    query,
+    sqlite::{SqlitePool, SqliteRow},
+    Row,
+};
+use tracing::debug;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct Param{
+pub struct Param {
     id: i64,
     key: String,
     value: String,
@@ -14,10 +17,9 @@ pub struct Param{
     updated_at: DateTime<Utc>,
 }
 
-
-impl Param{
-    fn from_row(row: SqliteRow) -> Self{
-        Self{
+impl Param {
+    fn from_row(row: SqliteRow) -> Self {
+        Self {
             id: row.get("id"),
             key: row.get("key"),
             value: row.get("value"),
@@ -26,18 +28,18 @@ impl Param{
         }
     }
 
-    pub async fn get(pool: &SqlitePool, key: &str) -> Result<String, Error>{
+    pub async fn get(pool: &SqlitePool, key: &str) -> Result<String, Error> {
         debug!("get {key}");
         let sql = "SELECT value FROM config WHERE key = $1";
         query(sql)
             .bind(key)
-            .map(|row: SqliteRow| -> String {row.get(0)})
+            .map(|row: SqliteRow| -> String { row.get(0) })
             .fetch_one(pool)
             .await
             .map_err(|e| e.into())
     }
 
-    pub async fn set(pool: &SqlitePool, key: &str, value: &str) -> Result<Param, Error>{
+    pub async fn set(pool: &SqlitePool, key: &str, value: &str) -> Result<Param, Error> {
         debug!("set {key}={value}");
         let current_ts = Utc::now();
         let sql = "INSERT INTO config(key, value, updated_at) \
@@ -56,5 +58,3 @@ impl Param{
             .map_err(|e| e.into())
     }
 }
-
-

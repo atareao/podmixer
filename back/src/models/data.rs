@@ -21,5 +21,3 @@ impl Serialize for Data {
         }
     }
 }
-
-

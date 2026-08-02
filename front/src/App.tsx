@@ -13,6 +13,7 @@ import LoginPage from "./pages/login_page";
 import LogoutPage from "./pages/logout_page";
 import PodcastsPage from "./pages/podcasts_page";
 import ConfigurationPage from "./pages/configuration_page";
+import PublishersPage from "./pages/publishers_page";
 import { AuthContextProvider } from "./components/auth_context";
 import "./App.css";
 
@@ -33,6 +34,7 @@ export default class App extends react.Component {
                             <Route index element={<HomePage />} />
                             <Route path="podcasts" element={<PodcastsPage />} />
                             <Route path="configuration" element={<ConfigurationPage />} />
+                            <Route path="publishers" element={<PublishersPage />} />
                             <Route path="logout" element={<LogoutPage />} />
                         </Route>
                         <Route path="/" element={<AuthLayout />} >

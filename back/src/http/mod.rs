@@ -1,10 +1,11 @@
-mod user;
+mod config;
 mod health;
 mod podcast;
-mod config;
+mod publishers;
+mod user;
 
-pub use health::health_router;
-pub use user::user_router;
-pub use podcast::podcast_router;
 pub use config::config_router;
-
+pub use health::health_router;
+pub use podcast::podcast_router;
+pub use publishers::publishers_router;
+pub use user::user_router;

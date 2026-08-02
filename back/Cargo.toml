@@ -11,7 +11,7 @@ chrono = { version = "0.4.42", features = ["serde"] }
 cookie = "0.18.1"
 futures = "0.3.31"
 html2text = "0.15.5"
-jsonwebtoken = "9.3.1"
+jsonwebtoken = "10.3.0"
 minijinja = { version = "2.12.0", features = ["loader"] }
 openssl = { version = "0.10.80", features = ["vendored"] }
 regex = "1.11.2"

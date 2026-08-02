@@ -1905,6 +1905,7 @@ dependencies = [
  "async-trait",
  "axum",
  "axum-extra",
+ "base64",
  "bcrypt",
  "chrono",
  "cookie",
@@ -1925,6 +1926,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "url",
  "uuid",
 ]
 

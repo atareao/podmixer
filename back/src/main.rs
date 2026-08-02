@@ -100,6 +100,7 @@ async fn main() -> Result<(), Error> {
             pool: pool.clone(),
             secret,
             sse_broadcaster: sse_broadcaster.clone(),
+            oauth_states: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
         }));
 
     let cors = CorsLayer::new()

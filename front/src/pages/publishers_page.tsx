@@ -175,6 +175,7 @@ export default class PublishersPage extends React.Component<{}, PublishersPageSt
                             publisher={this.state.editingPublisher}
                             onSave={this.handleSave}
                             onCancel={() => this.setState({ dialogOpen: false })}
+                            onRefresh={this.loadPublishers}
                         />
                     </DialogContent>
                 </Dialog>

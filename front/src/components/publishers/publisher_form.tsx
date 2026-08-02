@@ -9,12 +9,17 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
 import { Publisher, PublisherConfig } from '../../models/publisher';
+import { BASE_URL } from '../../constants';
 
 interface PublisherFormProps {
     publisher?: Publisher;
     onSave: (publisher: Partial<Publisher>) => void;
     onCancel: () => void;
+    onRefresh?: () => void;
 }
 
 interface PublisherFormState {
@@ -100,6 +105,37 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
         });
     };
 
+    handleOAuthConnect = async (publisherId: string) => {
+        const token = localStorage.getItem('token');
+        try {
+            const resp = await fetch(`${BASE_URL}/api/v1/publishers/${publisherId}/oauth/authorize`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await resp.json();
+            if (resp.ok && data.url) {
+                const popup = window.open(data.url, 'oauth', 'width=600,height=700');
+                if (!popup) {
+                    alert('Popup blocked! Please allow popups for this site.');
+                    return;
+                }
+                const handleMessage = (event: MessageEvent) => {
+                    if (event.data?.type === 'oauth-success' || event.data?.type === 'oauth-error') {
+                        window.removeEventListener('message', handleMessage);
+                        if (event.data.type === 'oauth-success') {
+                            if (this.props.onRefresh) this.props.onRefresh();
+                        }
+                    }
+                };
+                window.addEventListener('message', handleMessage);
+            } else {
+                console.error('OAuth authorize failed:', data);
+            }
+        } catch (error) {
+            console.error('Error during OAuth connect:', error);
+        }
+    };
+
     render() {
         const fields = this.getConfigFields();
         return (
@@ -151,6 +187,47 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                         helperText="Variables: {{ title }}, {{ description }}, {{ url }}. Filters: |truncate(n), |word_limit(n), |strip_html"
                     />
                 </Grid>
+                {this.props.publisher && (
+                    <Grid size={12}>
+                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                            {this.state.publisher_type === 'x' && this.state.config.client_id && this.state.config.client_secret && (
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<OpenInNewIcon />}
+                                    onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                >
+                                    🔗 Connect with X
+                                </Button>
+                            )}
+                            {this.state.publisher_type === 'mastodon' && this.state.config.server_url && (
+                                <>
+                                    {!this.state.config.client_id ? (
+                                        <Button
+                                            variant="outlined"
+                                            color="primary"
+                                            startIcon={<AppRegistrationIcon />}
+                                            onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                        >
+                                            📝 Register App & Connect
+                                        </Button>
+                                    ) : !this.state.config.access_token_mastodon ? (
+                                        <Button
+                                            variant="outlined"
+                                            color="primary"
+                                            startIcon={<OpenInNewIcon />}
+                                            onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                        >
+                                            🔗 Connect Mastodon
+                                        </Button>
+                                    ) : (
+                                        <Chip label="✅ Connected" color="success" />
+                                    )}
+                                </>
+                            )}
+                        </Stack>
+                    </Grid>
+                )}
                 <Grid size={12}>
                     <Switch
                         checked={this.state.active}

@@ -1,0 +1,1 @@
+DELETE FROM publishers WHERE id IN ('legacy-telegram', 'legacy-twitter');

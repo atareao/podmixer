@@ -13,7 +13,7 @@ use tracing::{debug, error};
 use axum_extra::extract::cookie::{Cookie, SameSite};
 use jsonwebtoken::{encode, EncodingKey, Header};
 
-use crate::models::{ApiResponse, AppState, Data, TokenClaims, User, UserSchema, UserRegister};
+use crate::models::{ApiResponse, AppState, Data, TokenClaims, User, UserRegister, UserSchema};
 
 pub fn user_router() -> Router<Arc<AppState>> {
     Router::new()
@@ -24,7 +24,10 @@ pub fn user_router() -> Router<Arc<AppState>> {
 
 type Result = std::result::Result<ApiResponse, ApiResponse>;
 
-pub async fn login(State(app_state): State<Arc<AppState>>, Json(user_schema): Json<UserSchema>) -> Result {
+pub async fn login(
+    State(app_state): State<Arc<AppState>>,
+    Json(user_schema): Json<UserSchema>,
+) -> Result {
     //) -> Result<Json<serde_json::Value>,(StatusCode, Json<serde_json::Value>)>{
     tracing::info!("init login");
     tracing::info!("User schema: {:?}", user_schema);
@@ -68,11 +71,22 @@ pub async fn register(
     Json(user_data): Json<UserRegister>,
 ) -> impl IntoResponse {
     debug!("User data: {:?}", user_data);
-    match User::create(&app_state.pool, &user_data.username, &user_data.email, &user_data.password).await {
+    match User::create(
+        &app_state.pool,
+        &user_data.username,
+        &user_data.email,
+        &user_data.password,
+    )
+    .await
+    {
         Ok(user) => {
             debug!("User created: {:?}", user);
-            ApiResponse::new(StatusCode::CREATED, "User created", Data::One(serde_json::to_value(user).unwrap()))
-        },
+            ApiResponse::new(
+                StatusCode::CREATED,
+                "User created",
+                Data::One(serde_json::to_value(user).unwrap()),
+            )
+        }
         Err(e) => {
             error!("Error creating user: {:?}", e);
             ApiResponse::new(StatusCode::BAD_REQUEST, "Error creating user", Data::None)
@@ -98,4 +112,3 @@ pub async fn logout() -> impl IntoResponse {
         .body(body::Body::empty())
         .unwrap()
 }
-

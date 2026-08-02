@@ -1,9 +1,13 @@
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
-use sqlx::{sqlite::{SqlitePool, SqliteRow}, query, Row, Error};
+use serde::{Deserialize, Serialize};
+use sqlx::{
+    query,
+    sqlite::{SqlitePool, SqliteRow},
+    Error, Row,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct User{
+pub struct User {
     id: i64,
     pub username: String,
     pub email: String,
@@ -43,10 +47,9 @@ pub struct FilteredUser {
     pub updated_at: DateTime<Utc>,
 }
 
-
-impl User{
-    fn from_row(row: SqliteRow) -> Self{
-        Self{
+impl User {
+    fn from_row(row: SqliteRow) -> Self {
+        Self {
             id: row.get("id"),
             username: row.get("username"),
             email: row.get("email"),
@@ -57,10 +60,16 @@ impl User{
         }
     }
 
-    pub async fn create(pool: &SqlitePool, username: &str, email: &str, password: &str) -> Result<User, Error> {
+    pub async fn create(
+        pool: &SqlitePool,
+        username: &str,
+        email: &str,
+        password: &str,
+    ) -> Result<User, Error> {
         let hashed_password = bcrypt::hash(password, bcrypt::DEFAULT_COST).unwrap();
 
-        let sql = "INSERT INTO users (username, email, hashed_password) VALUES ($1, $2, $3) RETURNING *";
+        let sql =
+            "INSERT INTO users (username, email, hashed_password) VALUES ($1, $2, $3) RETURNING *";
         query(sql)
             .bind(username)
             .bind(email)
@@ -70,7 +79,7 @@ impl User{
             .await
     }
 
-    pub async fn get_by_email(pool: &SqlitePool, email: &str) -> Result<User, Error>{
+    pub async fn get_by_email(pool: &SqlitePool, email: &str) -> Result<User, Error> {
         let sql = "SELECT * FROM users WHERE email = $1";
         query(sql)
             .bind(email)
@@ -79,4 +88,3 @@ impl User{
             .await
     }
 }
-

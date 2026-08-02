@@ -21,6 +21,10 @@ const pages = [
         "navigateTo": "/podcasts",
     },
     {
+        "name": "Publishers",
+        "navigateTo": "/publishers",
+    },
+    {
         "name": "Configuración",
         "navigateTo": "/configuration",
     },

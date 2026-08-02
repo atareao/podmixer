@@ -4,4 +4,3 @@ use serde::Deserialize;
 pub struct Id {
     pub id: i64,
 }
-

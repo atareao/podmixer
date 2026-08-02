@@ -3,18 +3,16 @@ use reqwest::Client;
 use serde_json::Value;
 
 use super::super::Error;
-use super::types::{PublisherImpl, PublisherType};
+use super::types::PublisherImpl;
 
 pub struct MastodonPublisher {
-    id: String,
     server_url: String,
     access_token: String,
 }
 
 impl MastodonPublisher {
-    pub fn new(id: String, config: &Value) -> Option<Self> {
+    pub fn new(config: &Value) -> Option<Self> {
         Some(Self {
-            id,
             server_url: config.get("server_url")?.as_str()?.to_string(),
             access_token: config.get("access_token")?.as_str()?.to_string(),
         })
@@ -40,13 +38,5 @@ impl PublisherImpl for MastodonPublisher {
             .text()
             .await?;
         Ok(resp)
-    }
-
-    fn publisher_type(&self) -> PublisherType {
-        PublisherType::Mastodon
-    }
-
-    fn id(&self) -> &str {
-        &self.id
     }
 }

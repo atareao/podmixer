@@ -59,25 +59,7 @@ pub struct PublishLog {
     pub created_at: String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct PublisherConfig {
-    pub bot_token: Option<String>,
-    pub chat_id: Option<String>,
-    pub message_thread_id: Option<String>,
-    pub client_id: Option<String>,
-    pub client_secret: Option<String>,
-    pub access_token: Option<String>,
-    pub refresh_token: Option<String>,
-    pub server_url: Option<String>,
-    pub access_token_mastodon: Option<String>,
-    pub homeserver_url: Option<String>,
-    pub room_id: Option<String>,
-    pub access_token_matrix: Option<String>,
-}
-
 #[async_trait]
 pub trait PublisherImpl: Send + Sync {
     async fn publish(&self, title: &str, description: &str, url: &str) -> Result<String, Error>;
-    fn publisher_type(&self) -> PublisherType;
-    fn id(&self) -> &str;
 }

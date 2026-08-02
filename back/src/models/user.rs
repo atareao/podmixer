@@ -37,16 +37,6 @@ pub struct UserRegister {
     pub password: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct FilteredUser {
-    pub id: i64,
-    pub username: String,
-    pub role: String,
-    pub verified: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-
 impl User {
     fn from_row(row: SqliteRow) -> Self {
         Self {

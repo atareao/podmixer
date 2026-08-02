@@ -3,19 +3,17 @@ use reqwest::Client;
 use serde_json::{json, Value};
 
 use super::super::Error;
-use super::types::{PublisherImpl, PublisherType};
+use super::types::PublisherImpl;
 
 pub struct MatrixPublisher {
-    id: String,
     homeserver_url: String,
     room_id: String,
     access_token: String,
 }
 
 impl MatrixPublisher {
-    pub fn new(id: String, config: &Value) -> Option<Self> {
+    pub fn new(config: &Value) -> Option<Self> {
         Some(Self {
-            id,
             homeserver_url: config.get("homeserver_url")?.as_str()?.to_string(),
             room_id: config.get("room_id")?.as_str()?.to_string(),
             access_token: config.get("access_token")?.as_str()?.to_string(),
@@ -53,13 +51,5 @@ impl PublisherImpl for MatrixPublisher {
             .text()
             .await?;
         Ok(resp)
-    }
-
-    fn publisher_type(&self) -> PublisherType {
-        PublisherType::Matrix
-    }
-
-    fn id(&self) -> &str {
-        &self.id
     }
 }

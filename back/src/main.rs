@@ -246,22 +246,6 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBr
     Ok(())
 }
 
-fn truncate(value: String, length: usize) -> String {
-    debug!("truncate");
-    match value.char_indices().nth(length) {
-        Some((idx, _)) => value[..idx].to_string(),
-        None => value,
-    }
-}
-
-#[allow(unused)]
-fn truncate2(value: String, length: usize) -> String {
-    debug!("truncate");
-    let mut cloned = value.clone();
-    cloned.truncate(length);
-    cloned
-}
-
 async fn publish_episode(
     pool: &SqlitePool,
     sse_broadcaster: &SseBroadcaster,
@@ -317,7 +301,7 @@ async fn publish_episode(
             continue;
         }
 
-        let impl_instance = create_publisher_impl(&publisher.id, &ptype, &publisher.config);
+        let impl_instance = create_publisher_impl(&ptype, &publisher.config);
         let impl_instance = match impl_instance {
             Some(instance) => instance,
             None => {
@@ -385,6 +369,13 @@ pub fn get_pub_date_timestamp(item: &Item) -> i64 {
 mod tests {
     use super::*;
 
+    fn truncate(value: String, length: usize) -> String {
+        debug!("truncate");
+        let mut cloned = value.clone();
+        cloned.truncate(length);
+        cloned
+    }
+
     #[test]
     fn truncate_test_0() {
         let prueba = "1234567890".to_string();
@@ -413,25 +404,25 @@ mod tests {
     #[test]
     fn truncate_test_4() {
         let prueba = "1234567890".to_string();
-        let result = truncate2(prueba.clone(), 100);
+        let result = truncate(prueba.clone(), 100);
         assert_eq!(prueba, result);
     }
     #[test]
     fn truncate_test_5() {
         let prueba = "1234567890".to_string();
-        let result = truncate2(prueba.clone(), 1);
+        let result = truncate(prueba.clone(), 1);
         assert_eq!("1".to_string(), result);
     }
     #[test]
     fn truncate_test_6() {
         let prueba = "".to_string();
-        let result = truncate2(prueba.clone(), 10);
+        let result = truncate(prueba.clone(), 10);
         assert_eq!(prueba, result);
     }
     #[test]
     fn truncate_test_7() {
         let prueba = "".to_string();
-        let result = truncate2(prueba.clone(), 0);
+        let result = truncate(prueba.clone(), 0);
         assert_eq!(prueba, result);
     }
     #[test]

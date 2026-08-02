@@ -1,6 +1,4 @@
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use sqlx::sqlite::SqlitePool;
 
 use super::super::Error;
@@ -13,39 +11,11 @@ use super::matrix::MatrixPublisher;
 
 pub struct PublisherManager {
     pool: SqlitePool,
-    publishers: RwLock<HashMap<String, Arc<dyn PublisherImpl>>>,
 }
 
 impl PublisherManager {
     pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            pool,
-            publishers: RwLock::new(HashMap::new()),
-        }
-    }
-
-    pub async fn load_publishers(&self) -> Result<(), Error> {
-        let rows = sqlx::query_as::<_, (String, String, String, String, String, bool, String, String)>(
-            "SELECT id, name, publisher_type, config, template, active, created_at, updated_at FROM publishers WHERE active = 1"
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut publishers = self.publishers.write().await;
-        publishers.clear();
-
-        for (id, name, ptype, config_json, template, active, created_at, updated_at) in rows {
-            let ptype = PublisherType::from_str(&ptype);
-            if ptype.is_none() { continue; }
-            let config: serde_json::Value = serde_json::from_str(&config_json).unwrap_or_default();
-            let _publisher = Publisher {
-                id, name,
-                publisher_type: ptype.unwrap(),
-                config, template,
-                active, created_at, updated_at,
-            };
-        }
-        Ok(())
+        Self { pool }
     }
 
     pub async fn get_publishers_db(&self) -> Result<Vec<Publisher>, Error> {
@@ -164,44 +134,27 @@ impl PublisherManager {
             status: r.5, message: r.6, created_at: r.7,
         }).collect())
     }
-
-    pub async fn get_logs_by_publisher(&self, publisher_id: &str, limit: i64) -> Result<Vec<PublishLog>, Error> {
-        let rows = sqlx::query_as::<_, (String, String, String, String, String, String, String, String)>(
-            "SELECT id, publisher_id, publisher_name, publisher_type, episode_title, status, message, created_at FROM publish_logs WHERE publisher_id = ? ORDER BY created_at DESC LIMIT ?"
-        )
-        .bind(publisher_id)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await?;
-
-        Ok(rows.into_iter().map(|r| PublishLog {
-            id: r.0, publisher_id: r.1, publisher_name: r.2,
-            publisher_type: r.3, episode_title: r.4,
-            status: r.5, message: r.6, created_at: r.7,
-        }).collect())
-    }
 }
 
 pub fn create_publisher_impl(
-    id: &str,
     publisher_type: &PublisherType,
     config: &serde_json::Value,
 ) -> Option<Arc<dyn PublisherImpl>> {
     match publisher_type {
         PublisherType::Telegram => {
-            TelegramPublisher::new(id.to_string(), config)
+            TelegramPublisher::new(config)
                 .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
         PublisherType::X => {
-            XPublisher::new(id.to_string(), config)
+            XPublisher::new(config)
                 .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
         PublisherType::Mastodon => {
-            MastodonPublisher::new(id.to_string(), config)
+            MastodonPublisher::new(config)
                 .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
         PublisherType::Matrix => {
-            MatrixPublisher::new(id.to_string(), config)
+            MatrixPublisher::new(config)
                 .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
     }

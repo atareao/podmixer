@@ -3,19 +3,17 @@ use reqwest::Client;
 use serde_json::Value;
 
 use super::super::Error;
-use super::types::{PublisherImpl, PublisherType};
+use super::types::PublisherImpl;
 
 pub struct TelegramPublisher {
-    id: String,
     bot_token: String,
     chat_id: String,
     message_thread_id: String,
 }
 
 impl TelegramPublisher {
-    pub fn new(id: String, config: &Value) -> Option<Self> {
+    pub fn new(config: &Value) -> Option<Self> {
         Some(Self {
-            id,
             bot_token: config.get("bot_token")?.as_str()?.to_string(),
             chat_id: config.get("chat_id")?.as_str()?.to_string(),
             message_thread_id: config
@@ -50,13 +48,5 @@ impl PublisherImpl for TelegramPublisher {
             .text()
             .await?;
         Ok(resp)
-    }
-
-    fn publisher_type(&self) -> PublisherType {
-        PublisherType::Telegram
-    }
-
-    fn id(&self) -> &str {
-        &self.id
     }
 }

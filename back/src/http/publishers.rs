@@ -180,7 +180,7 @@ pub async fn test_publisher(
     };
 
     let ptype = publisher.publisher_type.clone();
-    let impl_instance = match create_publisher_impl(&id, &ptype, &publisher.config) {
+    let impl_instance = match create_publisher_impl(&ptype, &publisher.config) {
         Some(instance) => instance,
         None => {
             return ApiResponse::new(

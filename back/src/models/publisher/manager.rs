@@ -1,13 +1,13 @@
-use std::sync::Arc;
 use sqlx::sqlite::SqlitePool;
+use std::sync::Arc;
 
 use super::super::Error;
-use super::types::{Publisher, PublisherImpl, PublisherType, PublishLog};
+use super::types::{PublishLog, Publisher, PublisherImpl, PublisherType};
 
-use super::telegram::TelegramPublisher;
-use super::x::XPublisher;
 use super::mastodon::MastodonPublisher;
 use super::matrix::MatrixPublisher;
+use super::telegram::TelegramPublisher;
+use super::x::XPublisher;
 
 pub struct PublisherManager {
     pool: SqlitePool,
@@ -19,33 +19,55 @@ impl PublisherManager {
     }
 
     pub async fn get_publishers_db(&self) -> Result<Vec<Publisher>, Error> {
-        let rows = sqlx::query_as::<_, (String, String, String, String, String, bool, String, String)>(
-            "SELECT id, name, publisher_type, config, template, active, created_at, updated_at FROM publishers ORDER BY created_at DESC"
+        let rows = sqlx::query_as::<_, (String, String, String, String, String, String, bool, String, String)>(
+            "SELECT id, name, publisher_type, config, template, reply_template, active, created_at, updated_at FROM publishers ORDER BY created_at DESC"
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|(id, name, ptype, config, template, active, created_at, updated_at)| {
-            Publisher {
-                id, name,
-                publisher_type: PublisherType::from_str(&ptype).unwrap_or(PublisherType::Telegram),
-                config: serde_json::from_str(&config).unwrap_or_default(),
-                template, active, created_at, updated_at,
-            }
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(
+                |(
+                    id,
+                    name,
+                    ptype,
+                    config,
+                    template,
+                    reply_template,
+                    active,
+                    created_at,
+                    updated_at,
+                )| {
+                    Publisher {
+                        id,
+                        name,
+                        publisher_type: PublisherType::from_str(&ptype)
+                            .unwrap_or(PublisherType::Telegram),
+                        config: serde_json::from_str(&config).unwrap_or_default(),
+                        template,
+                        reply_template,
+                        active,
+                        created_at,
+                        updated_at,
+                    }
+                },
+            )
+            .collect())
     }
 
     pub async fn create_publisher(&self, publisher: &Publisher) -> Result<Publisher, Error> {
         let id = uuid::Uuid::new_v4().to_string();
         let config_str = serde_json::to_string(&publisher.config)?;
         sqlx::query(
-            "INSERT INTO publishers (id, name, publisher_type, config, template, active) VALUES (?, ?, ?, ?, ?, ?)"
+            "INSERT INTO publishers (id, name, publisher_type, config, template, reply_template, active) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(&id)
         .bind(&publisher.name)
         .bind(publisher.publisher_type.as_str())
         .bind(&config_str)
         .bind(&publisher.template)
+        .bind(&publisher.reply_template)
         .bind(publisher.active)
         .execute(&self.pool)
         .await?;
@@ -54,31 +76,40 @@ impl PublisherManager {
     }
 
     pub async fn get_publisher(&self, id: &str) -> Result<Publisher, Error> {
-        let row = sqlx::query_as::<_, (String, String, String, String, String, bool, String, String)>(
-            "SELECT id, name, publisher_type, config, template, active, created_at, updated_at FROM publishers WHERE id = ?"
+        let row = sqlx::query_as::<_, (String, String, String, String, String, String, bool, String, String)>(
+            "SELECT id, name, publisher_type, config, template, reply_template, active, created_at, updated_at FROM publishers WHERE id = ?"
         )
         .bind(id)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(Publisher {
-            id: row.0, name: row.1,
+            id: row.0,
+            name: row.1,
             publisher_type: PublisherType::from_str(&row.2).unwrap_or(PublisherType::Telegram),
             config: serde_json::from_str(&row.3).unwrap_or_default(),
-            template: row.4, active: row.5,
-            created_at: row.6, updated_at: row.7,
+            template: row.4,
+            reply_template: row.5,
+            active: row.6,
+            created_at: row.7,
+            updated_at: row.8,
         })
     }
 
-    pub async fn update_publisher(&self, id: &str, publisher: &Publisher) -> Result<Publisher, Error> {
+    pub async fn update_publisher(
+        &self,
+        id: &str,
+        publisher: &Publisher,
+    ) -> Result<Publisher, Error> {
         let config_str = serde_json::to_string(&publisher.config)?;
         sqlx::query(
-            "UPDATE publishers SET name = ?, publisher_type = ?, config = ?, template = ?, active = ?, updated_at = datetime('now') WHERE id = ?"
+            "UPDATE publishers SET name = ?, publisher_type = ?, config = ?, template = ?, reply_template = ?, active = ?, updated_at = datetime('now') WHERE id = ?"
         )
         .bind(&publisher.name)
         .bind(publisher.publisher_type.as_str())
         .bind(&config_str)
         .bind(&publisher.template)
+        .bind(&publisher.reply_template)
         .bind(publisher.active)
         .bind(id)
         .execute(&self.pool)
@@ -96,10 +127,12 @@ impl PublisherManager {
     }
 
     pub async fn toggle_publisher(&self, id: &str) -> Result<Publisher, Error> {
-        sqlx::query("UPDATE publishers SET active = NOT active, updated_at = datetime('now') WHERE id = ?")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "UPDATE publishers SET active = NOT active, updated_at = datetime('now') WHERE id = ?",
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
         self.get_publisher(id).await
     }
 
@@ -128,34 +161,39 @@ impl PublisherManager {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| PublishLog {
-            id: r.0, publisher_id: r.1, publisher_name: r.2,
-            publisher_type: r.3, episode_title: r.4,
-            status: r.5, message: r.6, created_at: r.7,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| PublishLog {
+                id: r.0,
+                publisher_id: r.1,
+                publisher_name: r.2,
+                publisher_type: r.3,
+                episode_title: r.4,
+                status: r.5,
+                message: r.6,
+                created_at: r.7,
+            })
+            .collect())
     }
 }
 
 pub fn create_publisher_impl(
     publisher_type: &PublisherType,
     config: &serde_json::Value,
+    template: &str,
+    reply_template: &str,
 ) -> Option<Arc<dyn PublisherImpl>> {
     match publisher_type {
         PublisherType::Telegram => {
-            TelegramPublisher::new(config)
-                .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
+            TelegramPublisher::new(config).map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
-        PublisherType::X => {
-            XPublisher::new(config)
-                .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
-        }
+        PublisherType::X => XPublisher::new(config, template, reply_template)
+            .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>),
         PublisherType::Mastodon => {
-            MastodonPublisher::new(config)
-                .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
+            MastodonPublisher::new(config).map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
         PublisherType::Matrix => {
-            MatrixPublisher::new(config)
-                .map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
+            MatrixPublisher::new(config).map(|p| Arc::new(p) as Arc<dyn PublisherImpl>)
         }
     }
 }

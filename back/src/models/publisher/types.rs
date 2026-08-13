@@ -1,6 +1,6 @@
+use super::super::Error;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use super::super::Error;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -40,6 +40,7 @@ pub struct Publisher {
     pub publisher_type: PublisherType,
     pub config: serde_json::Value,
     pub template: String,
+    pub reply_template: String,
     pub active: bool,
     #[serde(default)]
     pub created_at: String,

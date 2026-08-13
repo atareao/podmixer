@@ -10,7 +10,10 @@ use axum::{
 };
 use chrono::DateTime;
 use html2text::from_read;
-use http::{config_router, health_router, oauth_callback_get, podcast_router, publishers_router, user_router};
+use http::{
+    config_router, health_router, oauth_callback_get, podcast_router, publishers_router,
+    user_router,
+};
 use models::{
     publisher::{
         manager::{create_publisher_impl, PublisherManager},
@@ -153,7 +156,12 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBroadcaster, dry_run: bool) -> Result<(), Error> {
+async fn do_the_work(
+    pool: &SqlitePool,
+    older_than: i32,
+    sse_broadcaster: &SseBroadcaster,
+    dry_run: bool,
+) -> Result<(), Error> {
     debug!("Init feed");
     let feed = Feed::get(pool).await?;
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -204,16 +212,10 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBr
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice() {
             let title = episode.title().unwrap_or("");
-            let description = from_read(
-                episode.description().unwrap_or("").as_bytes(),
-                5000,
-            )
-            .unwrap_or_else(|_| "".to_string());
+            let description = from_read(episode.description().unwrap_or("").as_bytes(), 5000)
+                .unwrap_or_else(|_| "".to_string());
             let url = episode.link().unwrap_or("");
-            info!(
-                "Publishing episode: {}",
-                title
-            );
+            info!("Publishing episode: {}", title);
             publish_episode(pool, sse_broadcaster, title, &description, url, dry_run).await;
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
@@ -303,7 +305,12 @@ async fn publish_episode(
             continue;
         }
 
-        let impl_instance = create_publisher_impl(&ptype, &publisher.config);
+        let impl_instance = create_publisher_impl(
+            &ptype,
+            &publisher.config,
+            &publisher.template,
+            &publisher.reply_template,
+        );
         let impl_instance = match impl_instance {
             Some(instance) => instance,
             None => {
@@ -312,7 +319,10 @@ async fn publish_episode(
             }
         };
 
-        match impl_instance.publish(&ctx.title, &ctx.description, &ctx.url).await {
+        match impl_instance
+            .publish(&ctx.title, &ctx.description, &ctx.url)
+            .await
+        {
             Ok(response) => {
                 info!("Published to {}: {}", publisher.name, response);
                 let success_log = PublishLog {
@@ -322,7 +332,7 @@ async fn publish_episode(
                     publisher_type: publisher.publisher_type.as_str().to_string(),
                     episode_title: title.to_string(),
                     status: "success".to_string(),
-                    message: "Published successfully".to_string(),
+                    message: response.clone(),
                     created_at: String::new(),
                 };
                 let _ = manager.add_log(&success_log).await;
@@ -443,7 +453,7 @@ mod tests {
     }
     #[test]
     fn convert_3() {
-        let date1 = "Fri, 28 Feb 2025 16:08:58";
+        let date1 = "Fri, 28 Feb 2025 16:08:58 +0000";
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());

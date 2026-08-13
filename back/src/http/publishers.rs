@@ -11,8 +11,8 @@ use axum::{
     routing, Json, Router,
 };
 use futures::stream::{Stream, StreamExt};
-use serde_json::json;
 use serde::Deserialize;
+use serde_json::json;
 use tokio_stream::wrappers::BroadcastStream;
 use tracing::error;
 
@@ -197,7 +197,12 @@ pub async fn test_publisher(
     };
 
     let ptype = publisher.publisher_type.clone();
-    let impl_instance = match create_publisher_impl(&ptype, &publisher.config) {
+    let impl_instance = match create_publisher_impl(
+        &ptype,
+        &publisher.config,
+        &publisher.template,
+        &publisher.reply_template,
+    ) {
         Some(instance) => instance,
         None => {
             return ApiResponse::new(
@@ -240,7 +245,7 @@ pub async fn test_publisher(
                     publisher_type: publisher.publisher_type.as_str().to_string(),
                     episode_title: "Test".to_string(),
                     status: "success".to_string(),
-                    message: "Test published successfully".to_string(),
+                    message: response.clone(),
                     created_at: String::new(),
                 };
                 let data = Data::One(serde_json::json!({"response": response}));
@@ -307,9 +312,9 @@ pub async fn stream_logs(
 // OAuth endpoints
 // ---------------------------------------------------------------------------
 
+use crate::models::publisher::mastodon::MastodonPublisher;
 use crate::models::publisher::types::PublisherType;
 use crate::models::publisher::x::XPublisher;
-use crate::models::publisher::mastodon::MastodonPublisher;
 
 /// POST /api/v1/publishers/oauth/authorize/{id}
 pub async fn oauth_authorize(
@@ -319,7 +324,12 @@ pub async fn oauth_authorize(
     let manager = PublisherManager::new(state.pool.clone());
     let publisher = match manager.get_publisher(&id).await {
         Ok(p) => p,
-        Err(e) => return (StatusCode::NOT_FOUND, Json(json!({"ok": false, "error": format!("Publisher not found: {e}")}))),
+        Err(e) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"ok": false, "error": format!("Publisher not found: {e}")})),
+            )
+        }
     };
 
     let ptype = publisher.publisher_type.clone();
@@ -327,9 +337,16 @@ pub async fn oauth_authorize(
 
     match ptype {
         PublisherType::X => {
-            let x_pub = match XPublisher::new(&config) {
+            let x_pub = match XPublisher::new(&config, "", "") {
                 Some(p) => p,
-                None => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Invalid X config - need client_id and client_secret"}))),
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(
+                            json!({"ok": false, "error": "Invalid X config - need client_id and client_secret"}),
+                        ),
+                    )
+                }
             };
             let oauth_state = uuid::Uuid::new_v4().to_string();
             let (auth_url, _code_verifier) = x_pub.generate_auth_url(Some(oauth_state.clone()));
@@ -340,7 +357,14 @@ pub async fn oauth_authorize(
         PublisherType::Mastodon => {
             let m_pub = match MastodonPublisher::new(&config) {
                 Some(p) => p,
-                None => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Invalid Mastodon config - need server_url"}))),
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(
+                            json!({"ok": false, "error": "Invalid Mastodon config - need server_url"}),
+                        ),
+                    )
+                }
             };
 
             // If no client_id, register the app first
@@ -359,6 +383,7 @@ pub async fn oauth_authorize(
                             publisher_type: PublisherType::Mastodon,
                             config: updated_config.clone(),
                             template: publisher.template.clone(),
+                            reply_template: publisher.reply_template.clone(),
                             active: publisher.active,
                             created_at: publisher.created_at.clone(),
                             updated_at: publisher.updated_at.clone(),
@@ -367,25 +392,48 @@ pub async fn oauth_authorize(
 
                         let m_pub2 = match MastodonPublisher::new(&updated_config) {
                             Some(p) => p,
-                            None => return (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"ok": false, "error": "Failed to recreate Mastodon publisher"}))),
+                            None => {
+                                return (
+                                    StatusCode::INTERNAL_SERVER_ERROR,
+                                    Json(
+                                        json!({"ok": false, "error": "Failed to recreate Mastodon publisher"}),
+                                    ),
+                                )
+                            }
                         };
                         let oauth_state = uuid::Uuid::new_v4().to_string();
                         let auth_url = m_pub2.generate_auth_url(Some(oauth_state.clone()));
                         let mut states = state.oauth_states.lock().unwrap();
-                        states.insert(format!("mastodon:{id}"), (oauth_state, std::time::Instant::now()));
+                        states.insert(
+                            format!("mastodon:{id}"),
+                            (oauth_state, std::time::Instant::now()),
+                        );
                         return (StatusCode::OK, Json(json!({"ok": true, "url": auth_url})));
                     }
-                    Err(e) => return (StatusCode::BAD_GATEWAY, Json(json!({"ok": false, "error": format!("Failed to register Mastodon app: {e}")}))),
+                    Err(e) => {
+                        return (
+                            StatusCode::BAD_GATEWAY,
+                            Json(
+                                json!({"ok": false, "error": format!("Failed to register Mastodon app: {e}")}),
+                            ),
+                        )
+                    }
                 }
             }
 
             let oauth_state = uuid::Uuid::new_v4().to_string();
             let auth_url = m_pub.generate_auth_url(Some(oauth_state.clone()));
             let mut states = state.oauth_states.lock().unwrap();
-            states.insert(format!("mastodon:{id}"), (oauth_state, std::time::Instant::now()));
+            states.insert(
+                format!("mastodon:{id}"),
+                (oauth_state, std::time::Instant::now()),
+            );
             (StatusCode::OK, Json(json!({"ok": true, "url": auth_url})))
         }
-        _ => (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Publisher type does not support OAuth"}))),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "Publisher type does not support OAuth"})),
+        ),
     }
 }
 
@@ -398,7 +446,12 @@ pub async fn oauth_callback(
     let manager = PublisherManager::new(state.pool.clone());
     let publisher = match manager.get_publisher(&id).await {
         Ok(p) => p,
-        Err(e) => return (StatusCode::NOT_FOUND, Json(json!({"ok": false, "error": format!("Publisher not found: {e}")}))),
+        Err(e) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"ok": false, "error": format!("Publisher not found: {e}")})),
+            )
+        }
     };
 
     let ptype = publisher.publisher_type.clone();
@@ -411,18 +464,31 @@ pub async fn oauth_callback(
                 let stored = states.remove(&format!("x:{id}"));
                 match stored {
                     Some((ref stored_state, _)) if stored_state == cb_state => {}
-                    Some(_) => return (StatusCode::UNAUTHORIZED, Json(json!({"ok": false, "error": "OAuth state mismatch"}))),
+                    Some(_) => {
+                        return (
+                            StatusCode::UNAUTHORIZED,
+                            Json(json!({"ok": false, "error": "OAuth state mismatch"})),
+                        )
+                    }
                     None => tracing::warn!("No stored OAuth state found for X publisher {id}"),
                 }
             }
 
-            let x_pub = match XPublisher::new(&config) {
+            let x_pub = match XPublisher::new(&config, "", "") {
                 Some(p) => p,
-                None => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Invalid X config"}))),
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({"ok": false, "error": "Invalid X config"})),
+                    )
+                }
             };
 
             let code_verifier = "challenge";
-            match x_pub.exchange_code_for_tokens(&payload.code, code_verifier).await {
+            match x_pub
+                .exchange_code_for_tokens(&payload.code, code_verifier)
+                .await
+            {
                 Ok((access_token, refresh_token, _)) => {
                     let mut updated_config = config.clone();
                     if let Some(obj) = updated_config.as_object_mut() {
@@ -432,15 +498,26 @@ pub async fn oauth_callback(
                         }
                     }
                     let updated_pub = crate::models::publisher::types::Publisher {
-                        id: publisher.id.clone(), name: publisher.name.clone(),
-                        publisher_type: PublisherType::X, config: updated_config,
-                        template: publisher.template.clone(), active: publisher.active,
-                        created_at: publisher.created_at, updated_at: publisher.updated_at,
+                        id: publisher.id.clone(),
+                        name: publisher.name.clone(),
+                        publisher_type: PublisherType::X,
+                        config: updated_config,
+                        template: publisher.template.clone(),
+                        reply_template: publisher.reply_template.clone(),
+                        active: publisher.active,
+                        created_at: publisher.created_at,
+                        updated_at: publisher.updated_at,
                     };
                     let _ = manager.update_publisher(&id, &updated_pub).await;
-                    (StatusCode::OK, Json(json!({"ok": true, "message": "X connected successfully!"})))
+                    (
+                        StatusCode::OK,
+                        Json(json!({"ok": true, "message": "X connected successfully!"})),
+                    )
                 }
-                Err(e) => (StatusCode::BAD_GATEWAY, Json(json!({"ok": false, "error": format!("Token exchange failed: {e}")}))),
+                Err(e) => (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({"ok": false, "error": format!("Token exchange failed: {e}")})),
+                ),
             }
         }
         PublisherType::Mastodon => {
@@ -449,14 +526,26 @@ pub async fn oauth_callback(
                 let stored = states.remove(&format!("mastodon:{id}"));
                 match stored {
                     Some((ref stored_state, _)) if stored_state == cb_state => {}
-                    Some(_) => return (StatusCode::UNAUTHORIZED, Json(json!({"ok": false, "error": "OAuth state mismatch"}))),
-                    None => tracing::warn!("No stored OAuth state found for Mastodon publisher {id}"),
+                    Some(_) => {
+                        return (
+                            StatusCode::UNAUTHORIZED,
+                            Json(json!({"ok": false, "error": "OAuth state mismatch"})),
+                        )
+                    }
+                    None => {
+                        tracing::warn!("No stored OAuth state found for Mastodon publisher {id}")
+                    }
                 }
             }
 
             let m_pub = match MastodonPublisher::new(&config) {
                 Some(p) => p,
-                None => return (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Invalid Mastodon config"}))),
+                None => {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({"ok": false, "error": "Invalid Mastodon config"})),
+                    )
+                }
             };
 
             match m_pub.exchange_code_for_tokens(&payload.code).await {
@@ -466,18 +555,32 @@ pub async fn oauth_callback(
                         obj.insert("access_token".to_string(), json!(access_token));
                     }
                     let updated_pub = crate::models::publisher::types::Publisher {
-                        id: publisher.id.clone(), name: publisher.name.clone(),
-                        publisher_type: PublisherType::Mastodon, config: updated_config,
-                        template: publisher.template.clone(), active: publisher.active,
-                        created_at: publisher.created_at, updated_at: publisher.updated_at,
+                        id: publisher.id.clone(),
+                        name: publisher.name.clone(),
+                        publisher_type: PublisherType::Mastodon,
+                        config: updated_config,
+                        template: publisher.template.clone(),
+                        reply_template: publisher.reply_template.clone(),
+                        active: publisher.active,
+                        created_at: publisher.created_at,
+                        updated_at: publisher.updated_at,
                     };
                     let _ = manager.update_publisher(&id, &updated_pub).await;
-                    (StatusCode::OK, Json(json!({"ok": true, "message": "Mastodon connected successfully!"})))
+                    (
+                        StatusCode::OK,
+                        Json(json!({"ok": true, "message": "Mastodon connected successfully!"})),
+                    )
                 }
-                Err(e) => (StatusCode::BAD_GATEWAY, Json(json!({"ok": false, "error": format!("Token exchange failed: {e}")}))),
+                Err(e) => (
+                    StatusCode::BAD_GATEWAY,
+                    Json(json!({"ok": false, "error": format!("Token exchange failed: {e}")})),
+                ),
             }
         }
-        _ => (StatusCode::BAD_REQUEST, Json(json!({"ok": false, "error": "Publisher type does not support OAuth callback"}))),
+        _ => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"ok": false, "error": "Publisher type does not support OAuth callback"})),
+        ),
     }
 }
 
@@ -487,13 +590,22 @@ pub async fn oauth_callback_get(
     Query(query): Query<OAuthCallbackQuery>,
 ) -> axum::response::Response {
     if let Some(_error) = &query.error {
-        let desc = query.error_description.as_deref().unwrap_or("OAuth authorization denied");
+        let desc = query
+            .error_description
+            .as_deref()
+            .unwrap_or("OAuth authorization denied");
         return (StatusCode::OK, Html(oauth_result_html(false, desc))).into_response();
     }
 
     let code = match &query.code {
         Some(c) => c.clone(),
-        None => return (StatusCode::BAD_REQUEST, Html(oauth_result_html(false, "Missing authorization code"))).into_response(),
+        None => {
+            return (
+                StatusCode::BAD_REQUEST,
+                Html(oauth_result_html(false, "Missing authorization code")),
+            )
+                .into_response()
+        }
     };
     let state_param = query.state.as_deref().unwrap_or("");
 
@@ -511,18 +623,34 @@ pub async fn oauth_callback_get(
         }
         match found {
             Some(s) => s,
-            None => return (StatusCode::BAD_REQUEST, Html(oauth_result_html(false, "No matching OAuth state found"))).into_response(),
+            None => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Html(oauth_result_html(false, "No matching OAuth state found")),
+                )
+                    .into_response()
+            }
         }
     };
 
     if state_param != stored_state {
-        return (StatusCode::UNAUTHORIZED, Html(oauth_result_html(false, "OAuth state mismatch"))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Html(oauth_result_html(false, "OAuth state mismatch")),
+        )
+            .into_response();
     }
 
     let manager = PublisherManager::new(state.pool.clone());
     let publisher = match manager.get_publisher(&publisher_id).await {
         Ok(p) => p,
-        Err(_) => return (StatusCode::NOT_FOUND, Html(oauth_result_html(false, "Publisher not found"))).into_response(),
+        Err(_) => {
+            return (
+                StatusCode::NOT_FOUND,
+                Html(oauth_result_html(false, "Publisher not found")),
+            )
+                .into_response()
+        }
     };
 
     let ptype = publisher.publisher_type.clone();
@@ -530,7 +658,7 @@ pub async fn oauth_callback_get(
 
     match ptype {
         PublisherType::X => {
-            let x_pub = match XPublisher::new(&config) {
+            let x_pub = match XPublisher::new(&config, "", "") {
                 Some(p) => p,
                 None => return Html(oauth_result_html(false, "Invalid X config")).into_response(),
             };
@@ -545,21 +673,33 @@ pub async fn oauth_callback_get(
                         }
                     }
                     let updated_pub = crate::models::publisher::types::Publisher {
-                        id: publisher.id.clone(), name: publisher.name.clone(),
-                        publisher_type: PublisherType::X, config: updated_config,
-                        template: publisher.template.clone(), active: publisher.active,
-                        created_at: publisher.created_at, updated_at: publisher.updated_at,
+                        id: publisher.id.clone(),
+                        name: publisher.name.clone(),
+                        publisher_type: PublisherType::X,
+                        config: updated_config,
+                        template: publisher.template.clone(),
+                        reply_template: publisher.reply_template.clone(),
+                        active: publisher.active,
+                        created_at: publisher.created_at,
+                        updated_at: publisher.updated_at,
                     };
                     let _ = manager.update_publisher(&publisher_id, &updated_pub).await;
                     Html(oauth_result_html(true, "X connected successfully!")).into_response()
                 }
-                Err(e) => Html(oauth_result_html(false, &format!("Token exchange failed: {e}"))).into_response(),
+                Err(e) => Html(oauth_result_html(
+                    false,
+                    &format!("Token exchange failed: {e}"),
+                ))
+                .into_response(),
             }
         }
         PublisherType::Mastodon => {
             let m_pub = match MastodonPublisher::new(&config) {
                 Some(p) => p,
-                None => return Html(oauth_result_html(false, "Invalid Mastodon config")).into_response(),
+                None => {
+                    return Html(oauth_result_html(false, "Invalid Mastodon config"))
+                        .into_response()
+                }
             };
             match m_pub.exchange_code_for_tokens(&code).await {
                 Ok((access_token, _, _)) => {
@@ -568,15 +708,25 @@ pub async fn oauth_callback_get(
                         obj.insert("access_token".to_string(), json!(access_token));
                     }
                     let updated_pub = crate::models::publisher::types::Publisher {
-                        id: publisher.id.clone(), name: publisher.name.clone(),
-                        publisher_type: PublisherType::Mastodon, config: updated_config,
-                        template: publisher.template.clone(), active: publisher.active,
-                        created_at: publisher.created_at, updated_at: publisher.updated_at,
+                        id: publisher.id.clone(),
+                        name: publisher.name.clone(),
+                        publisher_type: PublisherType::Mastodon,
+                        config: updated_config,
+                        template: publisher.template.clone(),
+                        reply_template: publisher.reply_template.clone(),
+                        active: publisher.active,
+                        created_at: publisher.created_at,
+                        updated_at: publisher.updated_at,
                     };
                     let _ = manager.update_publisher(&publisher_id, &updated_pub).await;
-                    Html(oauth_result_html(true, "Mastodon connected successfully!")).into_response()
+                    Html(oauth_result_html(true, "Mastodon connected successfully!"))
+                        .into_response()
                 }
-                Err(e) => Html(oauth_result_html(false, &format!("Token exchange failed: {e}"))).into_response(),
+                Err(e) => Html(oauth_result_html(
+                    false,
+                    &format!("Token exchange failed: {e}"),
+                ))
+                .into_response(),
             }
         }
         _ => Html(oauth_result_html(false, "Unsupported publisher type")).into_response(),
@@ -585,7 +735,11 @@ pub async fn oauth_callback_get(
 
 fn oauth_result_html(success: bool, message: &str) -> String {
     let status_str = if success { "success" } else { "error" };
-    let title = if success { "\u{2705} Connected!" } else { "\u{274c} Connection failed" };
+    let title = if success {
+        "\u{2705} Connected!"
+    } else {
+        "\u{274c} Connection failed"
+    };
     let color = if success { "#22c55e" } else { "#ef4444" };
     let icon = if success { "\u{2705}" } else { "\u{274c}" };
     let escaped_msg = message

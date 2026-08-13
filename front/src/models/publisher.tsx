@@ -4,6 +4,7 @@ export interface Publisher {
     publisher_type: 'telegram' | 'x' | 'mastodon' | 'matrix';
     config: PublisherConfig;
     template: string;
+    reply_template: string;
     active: boolean;
     created_at: string;
     updated_at: string;

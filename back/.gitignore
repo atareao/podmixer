@@ -21,3 +21,6 @@ Cargo.lock
 #.idea/
 podmixer.db*
 static/
+
+# Notas de desarrollo local (nunca subir)
+DEV_NOTES.md

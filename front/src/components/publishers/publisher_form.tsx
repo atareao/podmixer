@@ -26,6 +26,7 @@ interface PublisherFormState {
     name: string;
     publisher_type: string;
     template: string;
+    reply_template: string;
     active: boolean;
     config: Record<string, string>;
 }
@@ -38,6 +39,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             name: p?.name || '',
             publisher_type: p?.publisher_type || 'telegram',
             template: p?.template || '',
+            reply_template: p?.reply_template || '',
             active: p?.active || false,
             config: this.configToState(p?.config || {}),
         };
@@ -103,6 +105,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             name: this.state.name,
             publisher_type: this.state.publisher_type as Publisher['publisher_type'],
             template: this.state.template,
+            reply_template: this.state.reply_template,
             active: this.state.active,
             config,
         });
@@ -189,6 +192,15 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                         value={this.state.template}
                         onChange={(e) => this.setState({ template: e.target.value })}
                         helperText="Variables: {{ title }}, {{ description }}, {{ url }}. Filters: |truncate(n), |word_limit(n), |strip_html"
+                    />
+                </Grid>
+                <Grid size={12}>
+                    <TextField
+                        multiline minRows={2} fullWidth
+                        label="Reply Template (minijinja)" variant="outlined"
+                        value={this.state.reply_template}
+                        onChange={(e) => this.setState({ reply_template: e.target.value })}
+                        helperText="Para X: texto del reply con la URL. Variables: {{ title }}, {{ description }}, {{ url }}"
                     />
                 </Grid>
                 {this.props.publisher && (

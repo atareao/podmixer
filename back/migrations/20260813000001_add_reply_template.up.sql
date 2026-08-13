@@ -1,0 +1,1 @@
+ALTER TABLE publishers ADD COLUMN reply_template TEXT NOT NULL DEFAULT '';

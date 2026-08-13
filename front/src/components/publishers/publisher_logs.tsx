@@ -17,9 +17,13 @@ export default class PublisherLogs extends React.Component<PublisherLogsProps> {
             headerName: 'Status',
             width: 120,
             renderCell: (params) => {
-                const color = params.value === 'success' ? 'success' :
-                    params.value === 'error' ? 'error' : 'warning';
-                return <Chip label={params.value} color={color as 'success' | 'error' | 'warning'} size="small" />;
+                const colorMap: Record<string, 'success' | 'error' | 'warning' | 'info'> = {
+                    success: 'success',
+                    error: 'error',
+                    'dry-run': 'info',
+                };
+                const color = colorMap[params.value as string] ?? 'warning';
+                return <Chip label={params.value} color={color} size="small" />;
             },
         },
         { field: 'message', headerName: 'Message', flex: 1 },

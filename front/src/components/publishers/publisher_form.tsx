@@ -9,18 +9,24 @@ import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
+import Chip from '@mui/material/Chip';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
 import { Publisher, PublisherConfig } from '../../models/publisher';
+import { BASE_URL } from '../../constants';
 
 interface PublisherFormProps {
     publisher?: Publisher;
     onSave: (publisher: Partial<Publisher>) => void;
     onCancel: () => void;
+    onRefresh?: () => void;
 }
 
 interface PublisherFormState {
     name: string;
     publisher_type: string;
     template: string;
+    reply_template: string;
     active: boolean;
     config: Record<string, string>;
 }
@@ -33,6 +39,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             name: p?.name || '',
             publisher_type: p?.publisher_type || 'telegram',
             template: p?.template || '',
+            reply_template: p?.reply_template || '',
             active: p?.active || false,
             config: this.configToState(p?.config || {}),
         };
@@ -47,6 +54,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             client_secret: config.client_secret || '',
             access_token: config.access_token || '',
             refresh_token: config.refresh_token || '',
+            redirect_uri: config.redirect_uri || '',
             server_url: config.server_url || '',
             access_token_mastodon: config.access_token_mastodon || '',
             homeserver_url: config.homeserver_url || '',
@@ -67,12 +75,14 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                 return [
                     { key: 'client_id', label: 'Client ID' },
                     { key: 'client_secret', label: 'Client Secret' },
+                    { key: 'redirect_uri', label: 'Redirect URI' },
                     { key: 'access_token', label: 'Access Token' },
                     { key: 'refresh_token', label: 'Refresh Token' },
                 ];
             case 'mastodon':
                 return [
                     { key: 'server_url', label: 'Server URL' },
+                    { key: 'redirect_uri', label: 'Redirect URI' },
                     { key: 'access_token_mastodon', label: 'Access Token' },
                 ];
             case 'matrix':
@@ -95,9 +105,41 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
             name: this.state.name,
             publisher_type: this.state.publisher_type as Publisher['publisher_type'],
             template: this.state.template,
+            reply_template: this.state.reply_template,
             active: this.state.active,
             config,
         });
+    };
+
+    handleOAuthConnect = async (publisherId: string) => {
+        const token = localStorage.getItem('token');
+        try {
+            const resp = await fetch(`${BASE_URL}/api/v1/publishers/${publisherId}/oauth/authorize`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await resp.json();
+            if (resp.ok && data.url) {
+                const popup = window.open(data.url, 'oauth', 'width=600,height=700');
+                if (!popup) {
+                    alert('Popup blocked! Please allow popups for this site.');
+                    return;
+                }
+                const handleMessage = (event: MessageEvent) => {
+                    if (event.data?.type === 'oauth-success' || event.data?.type === 'oauth-error') {
+                        window.removeEventListener('message', handleMessage);
+                        if (event.data.type === 'oauth-success') {
+                            if (this.props.onRefresh) this.props.onRefresh();
+                        }
+                    }
+                };
+                window.addEventListener('message', handleMessage);
+            } else {
+                console.error('OAuth authorize failed:', data);
+            }
+        } catch (error) {
+            console.error('Error during OAuth connect:', error);
+        }
     };
 
     render() {
@@ -139,6 +181,7 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                             onChange={(e) => this.setState({
                                 config: { ...this.state.config, [field.key]: e.target.value }
                             })}
+                            helperText={field.key === 'redirect_uri' ? 'URL que configuras en X/Mastodon para el callback OAuth' : undefined}
                         />
                     </Grid>
                 ))}
@@ -151,6 +194,56 @@ export default class PublisherForm extends React.Component<PublisherFormProps, P
                         helperText="Variables: {{ title }}, {{ description }}, {{ url }}. Filters: |truncate(n), |word_limit(n), |strip_html"
                     />
                 </Grid>
+                <Grid size={12}>
+                    <TextField
+                        multiline minRows={2} fullWidth
+                        label="Reply Template (minijinja)" variant="outlined"
+                        value={this.state.reply_template}
+                        onChange={(e) => this.setState({ reply_template: e.target.value })}
+                        helperText="Para X: texto del reply con la URL. Variables: {{ title }}, {{ description }}, {{ url }}"
+                    />
+                </Grid>
+                {this.props.publisher && (
+                    <Grid size={12}>
+                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                            {this.state.publisher_type === 'x' && this.state.config.client_id && this.state.config.client_secret && (
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<OpenInNewIcon />}
+                                    onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                >
+                                    🔗 Connect with X
+                                </Button>
+                            )}
+                            {this.state.publisher_type === 'mastodon' && this.state.config.server_url && (
+                                <>
+                                    {!this.state.config.client_id ? (
+                                        <Button
+                                            variant="outlined"
+                                            color="primary"
+                                            startIcon={<AppRegistrationIcon />}
+                                            onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                        >
+                                            📝 Register App & Connect
+                                        </Button>
+                                    ) : !this.state.config.access_token_mastodon ? (
+                                        <Button
+                                            variant="outlined"
+                                            color="primary"
+                                            startIcon={<OpenInNewIcon />}
+                                            onClick={() => this.handleOAuthConnect(this.props.publisher!.id)}
+                                        >
+                                            🔗 Connect Mastodon
+                                        </Button>
+                                    ) : (
+                                        <Chip label="✅ Connected" color="success" />
+                                    )}
+                                </>
+                            )}
+                        </Stack>
+                    </Grid>
+                )}
                 <Grid size={12}>
                     <Switch
                         checked={this.state.active}

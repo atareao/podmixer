@@ -54,6 +54,7 @@ Dockerfile     Multi-stage build (node:22 → rust:alpine → alpine:3.22)
 | `SLEEP_TIME` | `900` | Background poll interval (seconds) |
 | `OLDER_THAN` | `30` | Days threshold for short vs long feed |
 | `RUST_ENV` | — | Set to `production` in Docker; controls migration path resolution |
+| `PUBLISHER_DRY_RUN` | `false` | Cuando es `true`, los publishers simulan las publicaciones sin enviar realmente a redes sociales. Se registra un log con estado "dry-run". Por defecto activo en `just dev` y `just back`.
 
 ## Development gotchas
 

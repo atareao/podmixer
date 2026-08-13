@@ -31,11 +31,23 @@ export default class HomePage extends react.Component {
                     <Card variant="outlined">
                         <CardHeader title="Configuración" />
                         <CardContent>
-                            <p>Aquí puedes configurar las redes sociales.</p>
-                            <p>El feed, twitter y telegram (por ahora)</p>
+                            <p>Aquí puedes configurar el feed RSS.</p>
+                            <p>Los publishers se gestionan desde la sección Publishers.</p>
                         </CardContent>
                         <CardActions disableSpacing>
                             <IconButton href="/configuration" >
+                                <LaunchIcon />
+                            </IconButton>
+                        </CardActions>
+                    </Card>
+                    <Card variant="outlined">
+                        <CardHeader title="Publishers" />
+                        <CardContent>
+                            <p>Gestiona las redes sociales donde se publican los episodios.</p>
+                            <p>Configura Telegram, X, Mastodon y Matrix.</p>
+                        </CardContent>
+                        <CardActions disableSpacing>
+                            <IconButton href="/publishers" >
                                 <LaunchIcon />
                             </IconButton>
                         </CardActions>

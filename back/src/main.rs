@@ -10,7 +10,10 @@ use axum::{
 };
 use chrono::DateTime;
 use html2text::from_read;
-use http::{config_router, health_router, podcast_router, publishers_router, user_router};
+use http::{
+    config_router, health_router, oauth_callback_get, podcast_router, publishers_router,
+    user_router,
+};
 use models::{
     publisher::{
         manager::{create_publisher_impl, PublisherManager},
@@ -91,6 +94,7 @@ async fn main() -> Result<(), Error> {
     let sse_broadcaster = SseBroadcaster::new();
 
     let api_routes = Router::new()
+        .route("/oauth/callback", axum::routing::get(oauth_callback_get))
         .nest("/health", health_router())
         .nest("/auth", user_router())
         .nest("/podcasts", podcast_router())
@@ -100,6 +104,7 @@ async fn main() -> Result<(), Error> {
             pool: pool.clone(),
             secret,
             sse_broadcaster: sse_broadcaster.clone(),
+            oauth_states: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
         }));
 
     let cors = CorsLayer::new()
@@ -124,9 +129,13 @@ async fn main() -> Result<(), Error> {
 
     let pool2 = pool.clone();
     let sse2 = sse_broadcaster.clone();
+    let dry_run = std::env::var("PUBLISHER_DRY_RUN")
+        .ok()
+        .map(|v| v == "1" || v.to_lowercase() == "true")
+        .unwrap_or(false);
     tokio::spawn(async move {
         loop {
-            match do_the_work(&pool2, older_than, &sse2).await {
+            match do_the_work(&pool2, older_than, &sse2, dry_run).await {
                 Ok(_) => {}
                 Err(error) => {
                     error!("do_the_work error: {error}");
@@ -147,7 +156,12 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBroadcaster) -> Result<(), Error> {
+async fn do_the_work(
+    pool: &SqlitePool,
+    older_than: i32,
+    sse_broadcaster: &SseBroadcaster,
+    dry_run: bool,
+) -> Result<(), Error> {
     debug!("Init feed");
     let feed = Feed::get(pool).await?;
     let mut new_episodes: Vec<Item> = Vec::new();
@@ -198,17 +212,11 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBr
         new_episodes.sort_by(|a, b| a.pub_date.cmp(&b.pub_date));
         for episode in new_episodes.as_slice() {
             let title = episode.title().unwrap_or("");
-            let description = from_read(
-                episode.description().unwrap_or("").as_bytes(),
-                5000,
-            )
-            .unwrap_or_else(|_| "".to_string());
+            let description = from_read(episode.description().unwrap_or("").as_bytes(), 5000)
+                .unwrap_or_else(|_| "".to_string());
             let url = episode.link().unwrap_or("");
-            info!(
-                "Publishing episode: {}",
-                title
-            );
-            publish_episode(pool, sse_broadcaster, title, &description, url).await;
+            info!("Publishing episode: {}", title);
+            publish_episode(pool, sse_broadcaster, title, &description, url, dry_run).await;
             tokio::time::sleep(Duration::from_secs(1)).await;
         }
         // Sort episodes
@@ -242,28 +250,13 @@ async fn do_the_work(pool: &SqlitePool, older_than: i32, sse_broadcaster: &SseBr
     Ok(())
 }
 
-fn truncate(value: String, length: usize) -> String {
-    debug!("truncate");
-    match value.char_indices().nth(length) {
-        Some((idx, _)) => value[..idx].to_string(),
-        None => value,
-    }
-}
-
-#[allow(unused)]
-fn truncate2(value: String, length: usize) -> String {
-    debug!("truncate");
-    let mut cloned = value.clone();
-    cloned.truncate(length);
-    cloned
-}
-
 async fn publish_episode(
     pool: &SqlitePool,
     sse_broadcaster: &SseBroadcaster,
     title: &str,
     description: &str,
     url: &str,
+    dry_run: bool,
 ) {
     let manager = PublisherManager::new(pool.clone());
     let publishers = match manager.get_publishers_db().await {
@@ -276,15 +269,6 @@ async fn publish_episode(
 
     for publisher in publishers {
         let ptype = publisher.publisher_type.clone();
-        let impl_instance = create_publisher_impl(&publisher.id, &ptype, &publisher.config);
-        let impl_instance = match impl_instance {
-            Some(instance) => instance,
-            None => {
-                error!("Invalid config for publisher {}", publisher.name);
-                continue;
-            }
-        };
-
         let ctx = TemplateContext {
             title: title.to_string(),
             description: description.to_string(),
@@ -304,7 +288,41 @@ async fn publish_episode(
         };
         let _ = manager.add_log(&log).await;
 
-        match impl_instance.publish(&ctx.title, &ctx.description, &ctx.url).await {
+        if dry_run {
+            info!("[DRY-RUN] Would publish to {}: {}", publisher.name, title);
+            let dry_log = PublishLog {
+                id: log_id,
+                publisher_id: publisher.id,
+                publisher_name: publisher.name,
+                publisher_type: publisher.publisher_type.as_str().to_string(),
+                episode_title: title.to_string(),
+                status: "dry-run".to_string(),
+                message: "Dry-run: publicación simulada".to_string(),
+                created_at: String::new(),
+            };
+            let _ = manager.add_log(&dry_log).await;
+            sse_broadcaster.broadcast(&dry_log);
+            continue;
+        }
+
+        let impl_instance = create_publisher_impl(
+            &ptype,
+            &publisher.config,
+            &publisher.template,
+            &publisher.reply_template,
+        );
+        let impl_instance = match impl_instance {
+            Some(instance) => instance,
+            None => {
+                error!("Invalid config for publisher {}", publisher.name);
+                continue;
+            }
+        };
+
+        match impl_instance
+            .publish(&ctx.title, &ctx.description, &ctx.url)
+            .await
+        {
             Ok(response) => {
                 info!("Published to {}: {}", publisher.name, response);
                 let success_log = PublishLog {
@@ -314,7 +332,7 @@ async fn publish_episode(
                     publisher_type: publisher.publisher_type.as_str().to_string(),
                     episode_title: title.to_string(),
                     status: "success".to_string(),
-                    message: "Published successfully".to_string(),
+                    message: response.clone(),
                     created_at: String::new(),
                 };
                 let _ = manager.add_log(&success_log).await;
@@ -363,6 +381,13 @@ pub fn get_pub_date_timestamp(item: &Item) -> i64 {
 mod tests {
     use super::*;
 
+    fn truncate(value: String, length: usize) -> String {
+        debug!("truncate");
+        let mut cloned = value.clone();
+        cloned.truncate(length);
+        cloned
+    }
+
     #[test]
     fn truncate_test_0() {
         let prueba = "1234567890".to_string();
@@ -391,25 +416,25 @@ mod tests {
     #[test]
     fn truncate_test_4() {
         let prueba = "1234567890".to_string();
-        let result = truncate2(prueba.clone(), 100);
+        let result = truncate(prueba.clone(), 100);
         assert_eq!(prueba, result);
     }
     #[test]
     fn truncate_test_5() {
         let prueba = "1234567890".to_string();
-        let result = truncate2(prueba.clone(), 1);
+        let result = truncate(prueba.clone(), 1);
         assert_eq!("1".to_string(), result);
     }
     #[test]
     fn truncate_test_6() {
         let prueba = "".to_string();
-        let result = truncate2(prueba.clone(), 10);
+        let result = truncate(prueba.clone(), 10);
         assert_eq!(prueba, result);
     }
     #[test]
     fn truncate_test_7() {
         let prueba = "".to_string();
-        let result = truncate2(prueba.clone(), 0);
+        let result = truncate(prueba.clone(), 0);
         assert_eq!(prueba, result);
     }
     #[test]
@@ -428,7 +453,7 @@ mod tests {
     }
     #[test]
     fn convert_3() {
-        let date1 = "Fri, 28 Feb 2025 16:08:58";
+        let date1 = "Fri, 28 Feb 2025 16:08:58 +0000";
         let value = DateTime::parse_from_rfc2822(date1);
         debug!("{:?}", value);
         assert!(value.is_ok());

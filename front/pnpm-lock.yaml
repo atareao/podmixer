@@ -74,7 +74,7 @@ importers:
         version: 19.2.4(@types/react@19.2.18)
       '@vitejs/plugin-react-swc':
         specifier: ^3.11.0
-        version: 3.11.0(vite@6.4.3(yaml@2.9.0))
+        version: 3.11.0(vite@6.4.5(yaml@2.9.0))
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(supports-color@7.2.0)
@@ -94,11 +94,11 @@ importers:
         specifier: ^8.65.0
         version: 8.65.0(eslint@9.39.5(supports-color@7.2.0))(supports-color@7.2.0)(typescript@5.7.3)
       vite:
-        specifier: ^6.4.3
-        version: 6.4.3(yaml@2.9.0)
+        specifier: ^6.4.5
+        version: 6.4.5(yaml@2.9.0)
       vite-plugin-static-copy:
         specifier: ^2.3.2
-        version: 2.3.2(vite@6.4.3(yaml@2.9.0))
+        version: 2.3.2(vite@6.4.5(yaml@2.9.0))
 
 packages:
 
@@ -1083,6 +1083,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -1568,8 +1569,8 @@ packages:
     peerDependencies:
       vite: ^5.0.0 || ^6.0.0
 
-  vite@6.4.3:
-    resolution: {integrity: sha512-NTKlcQjlAK7MlQoyb6LgaqHc8sso/pVyUJYWMws3jg21uTJw/LddqIFPcPqP6PzpgbIcZyKI85sFE4HBrQDA8A==}
+  vite@6.4.5:
+    resolution: {integrity: sha512-4enwjFfi4IwtEh0w+jPzpLVOFQiPHmmzPxcHXQOyEur47o6u0jE573DmGpjA+7irXoMLYRZD5ZaFUEneS3abPg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
     peerDependencies:
@@ -2322,11 +2323,11 @@ snapshots:
       '@typescript-eslint/types': 8.65.0
       eslint-visitor-keys: 5.0.1
 
-  '@vitejs/plugin-react-swc@3.11.0(vite@6.4.3(yaml@2.9.0))':
+  '@vitejs/plugin-react-swc@3.11.0(vite@6.4.5(yaml@2.9.0))':
     dependencies:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@swc/core': 1.15.47
-      vite: 6.4.3(yaml@2.9.0)
+      vite: 6.4.5(yaml@2.9.0)
     transitivePeerDependencies:
       - '@swc/helpers'
 
@@ -2964,16 +2965,16 @@ snapshots:
 
   valid-url@1.0.9: {}
 
-  vite-plugin-static-copy@2.3.2(vite@6.4.3(yaml@2.9.0)):
+  vite-plugin-static-copy@2.3.2(vite@6.4.5(yaml@2.9.0)):
     dependencies:
       chokidar: 3.6.0
       fast-glob: 3.3.3
       fs-extra: 11.4.0
       p-map: 7.0.6
       picocolors: 1.1.1
-      vite: 6.4.3(yaml@2.9.0)
+      vite: 6.4.5(yaml@2.9.0)
 
-  vite@6.4.3(yaml@2.9.0):
+  vite@6.4.5(yaml@2.9.0):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.5)
